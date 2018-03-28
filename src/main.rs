@@ -28,26 +28,34 @@ struct SoundResource {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct ResourceBundle {
-    resources: Vec<SoundResource>,
+struct Configuration {
+    resources:  Vec<SoundResource>,
+    host:       String,
+    port:       u32,
 }
 
 fn main() {
     // Handle args
     let args: Vec<String> = env::args().collect();
-    let usage = format!("Usage {} <Address>:<Port>", &args[0]);
+    let usage = format!("Usage {} [soundscape-config.yml]", &args[0]);
 
-    if args.len() < 2 {
-        println!("{}", usage);
-        ::std::process::exit(1)
-    }
+    let config_file_name =
+        if args.len() > 2 {
+            // Too many arguments
+            println!("{}", usage);
+            ::std::process::exit(1)
+        }
+        else if args.len() == 2 {
+            // custom configuration file
+            format!("{}", args[1])
+        }
+        else {
+            // Default value
+            String::from("soundscape-config.yml")
+        };
 
-    let address = match SocketAddrV4::from_str(&args[1]) {
-        Ok(addr)    => addr,
-        Err(_)      => panic!(usage),
-    };
 
-    let config_file_name = String::from("test-config.yml");
+    // Read config
     println!("loading config from '{}'...", config_file_name);
     let mut config_file = File::open(config_file_name).expect("Config file not found");
 
@@ -55,8 +63,17 @@ fn main() {
     config_file.read_to_string(&mut config_contents).expect("Encountered an error when reading from config file");
 
     println!("loaded config:\n{}", config_contents);
-    let resources: ResourceBundle = serde_yaml::from_str(&config_contents).unwrap();
-    println!("{:?}", resources);
+    let config: Configuration = serde_yaml::from_str(&config_contents).unwrap();
+    println!("{:?}", config);
+
+    // try bulding listening address
+    let address = match SocketAddrV4::from_str(format!("{}:{}", config.host, config.port).as_str()) {
+        Ok(addr)    => addr,
+        Err(_)      => {
+            println!("Unable to use host and port config fields ('{}:{}') as an address!", config.host, config.port);
+            ::std::process::exit(1)
+        }
+    };
 
     // Setup audio
     let channel_count = 16;
