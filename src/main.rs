@@ -1,6 +1,11 @@
-extern crate rodio;
-extern crate rosc;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_yaml;
 
+extern crate rosc;
+use rosc::OscPacket;
+
+extern crate rodio;
 use rodio::Sink;
 use rodio::Source;
 use std::time::Duration;
@@ -8,11 +13,23 @@ use std::time::Duration;
 use std::env;
 use std::net::{UdpSocket, SocketAddrV4};
 use std::str::FromStr;
-use rosc::OscPacket;
+use std::fs::File;
+use std::io::prelude::*;
 
 enum OscEvent {
     Volume(f32),
     NoAction,
+}
+
+// Configuration structs
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct SoundResource {
+    path: String,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct ResourceBundle {
+    resources: Vec<SoundResource>,
 }
 
 fn main() {
@@ -29,6 +46,17 @@ fn main() {
         Ok(addr)    => addr,
         Err(_)      => panic!(usage),
     };
+
+    let config_file_name = String::from("test-config.yml");
+    println!("loading config from '{}'...", config_file_name);
+    let mut config_file = File::open(config_file_name).expect("Config file not found");
+
+    let mut config_contents = String::new();
+    config_file.read_to_string(&mut config_contents).expect("Encountered an error when reading from config file");
+
+    println!("loaded config:\n{}", config_contents);
+    let resources: ResourceBundle = serde_yaml::from_str(&config_contents).unwrap();
+    println!("{:?}", resources);
 
     // Setup audio
     let channel_count = 16;
