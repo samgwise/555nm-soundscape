@@ -1,6 +1,18 @@
 # 555nm Soundscape #
+TODO: [![Build Status](https://travis-ci.org/samgwise/555nm-soundscape.svg?branch=master)](https://travis-ci.org/samgwise/555nm-soundscape)
 
 Audio player for the 555nm Vivid installation.
+
+## Overview ##
+
+Much work is still to be done...
+
+The proof of concept app provides cross-platform audio playback using [rodio](https://crates.io/crates/rodio) and basic IP control with OSC messages using [rosc](https://crates.io/crates/rosc).
+I2C interface is planned but yet to be implemented. The [i2cdev](https://crates.io/crates/i2cdev) looks like a good foundation for SMBus communication to the lighting rig. The semantics of this interface are yet to be designed.
+
+## Usage ##
+
+Not yet implemented
 
 ## Setup instructions ##
 
