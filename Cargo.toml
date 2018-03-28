@@ -1,0 +1,8 @@
+[package]
+name = "555nm-soundscape"
+version = "0.1.0"
+authors = ["Sam Gillespie <samgwise@gmail.com>"]
+
+[dependencies]
+rodio = "0.6.0"
+rosc = "0.1.5"
