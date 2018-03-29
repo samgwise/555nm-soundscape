@@ -6,13 +6,13 @@
   voice_limit: 16
   resources:
     - path: example/samples/drum-layer1.flac
-      min_threshhold: 1
+      min_threshold: 1
       max_threshold: 100
     - path: example/samples/drum-layer2.flac
-      min_threshhold: 2
+      min_threshold: 2
       max_threshold: 100
     - path: example/samples/drum-layer3.flac
-      min_threshhold: 4
+      min_threshold: 4
       max_threshold: 100
 
   # Defines a B-Spline curve as our cyclic structure

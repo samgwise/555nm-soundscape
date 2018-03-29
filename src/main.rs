@@ -20,6 +20,7 @@ use std::str::FromStr;
 use std::sync::mpsc::channel;
 
 mod config;
+mod soundscape;
 
 enum OscEvent {
     Volume(f32),
@@ -73,21 +74,23 @@ fn main() {
 
     let endpoint = rodio::default_endpoint().expect("Error selecting audio output device");
 
-    let mut sources = Vec::new();
+    let mut channel = Vec::new();
     for res in &config.resources {
         println!("Adding: {:?}", res);
-        sources.push(
+        let sound_source = soundscape::resource_to_sound_source(res, &endpoint);
+        let source =
             config::res_to_file(&res.path).and_then(|file| {
                 match rodio::Decoder::new( BufReader::new(file) ) {
                     Ok (decoder) => Ok(decoder),
                     Err (e) => Err( format!("Error creating audio source for '{}': {}", res.path, e) ),
                 }
             })
-            .expect("Error reading audio resource")
-        )
+            .expect("Error reading audio resource");
+
+        sound_source.channel.append(source.repeat_infinite());
+        channel.push(sound_source)
     }
 
-    let mut channel = Vec::new();
     // for n in 0..(channel_count - 1) {
     //     let overtone = n as u32;
     //     // let voice = n as f32;
@@ -100,17 +103,6 @@ fn main() {
     //         .fade_in(Duration::from_millis(200 * delay));
     //     channel[n].append(source);
     // }
-
-    println!("Prepared {} sources", sources.len());
-
-    for n in 0..(sources.len()) {
-        println!("Preparing source {}", n);
-        channel.push( Sink::new(&endpoint) );
-        let source = sources.pop().unwrap();
-        channel[n].append( source.buffered().repeat_infinite() );
-    }
-
-    println!("Prepared {} channels", channel.len());
 
     let volume_curve = config::to_b_spline(config.structure);
 
@@ -127,8 +119,11 @@ fn main() {
 
         let t = step_t * step;
         let volume = volume_curve.point( t );
-        // println!("v: {}, t: {}", volume, t);
-        set_volume(&mut channel, volume)
+        set_volume(&mut channel, volume);
+
+        if step % 1000.0 == 0.0 {
+            println!("v: {}, t: {}", volume, t);
+        }
     }
 
     // // Setup socket
@@ -204,8 +199,8 @@ fn route_osc(packet: OscPacket) -> OscEvent {
     }
 }
 
-fn set_volume(channels: &mut Vec<Sink>, volume: f32) {
+fn set_volume(channels: &mut Vec<soundscape::SoundSource>, volume: f32) {
     for c in channels {
-        c.set_volume(volume)
+        c.channel.set_volume(volume)
     }
 }
