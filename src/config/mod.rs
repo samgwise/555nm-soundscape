@@ -16,6 +16,8 @@ pub struct BSplineParams {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct SoundResource {
     pub path: String,
+    pub min_threshhold: f32,
+    pub max_threshold: f32,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -49,4 +51,11 @@ pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {
 
 pub fn to_b_spline(params: BSplineParams) -> bspline::BSpline<f32> {
     bspline::BSpline::new(params.degree, params.points, params.knots)
+}
+
+pub fn res_to_file(resource: &String) -> Result<File, String> {
+    match File::open(resource) {
+        Ok (file) => Ok(file),
+        Err (e) => return Err( format!("Error opening audio file '{}': {}", resource, e) ),
+    }
 }

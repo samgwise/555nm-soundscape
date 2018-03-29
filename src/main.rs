@@ -11,8 +11,9 @@ use rosc::OscPacket;
 extern crate rodio;
 use rodio::Sink;
 use rodio::Source;
-use std::time::Duration;
 
+use std::time::Duration;
+use std::io::BufReader;
 use std::env;
 use std::net::{UdpSocket, SocketAddrV4};
 use std::str::FromStr;
@@ -70,21 +71,46 @@ fn main() {
     let channel_count = config.voice_limit;
     let voices = channel_count as f32;
 
-    let endpoint = rodio::default_endpoint().unwrap();
+    let endpoint = rodio::default_endpoint().expect("Error selecting audio output device");
+
+    let mut sources = Vec::new();
+    for res in &config.resources {
+        println!("Adding: {:?}", res);
+        sources.push(
+            config::res_to_file(&res.path).and_then(|file| {
+                match rodio::Decoder::new( BufReader::new(file) ) {
+                    Ok (decoder) => Ok(decoder),
+                    Err (e) => Err( format!("Error creating audio source for '{}': {}", res.path, e) ),
+                }
+            })
+            .expect("Error reading audio resource")
+        )
+    }
 
     let mut channel = Vec::new();
-    for n in 0..(channel_count - 1) {
-        let overtone = n as u32;
-        // let voice = n as f32;
-        let delay = n as u64;
-        channel.push( Sink::new(&endpoint) );
+    // for n in 0..(channel_count - 1) {
+    //     let overtone = n as u32;
+    //     // let voice = n as f32;
+    //     let delay = n as u64;
+    //     channel.push( Sink::new(&endpoint) );
+    //
+    //     let source =
+    //         rodio::source::SineWave::new(110u32 * overtone)
+    //         .amplify( (0.25 / voices) )
+    //         .fade_in(Duration::from_millis(200 * delay));
+    //     channel[n].append(source);
+    // }
 
-        let source =
-            rodio::source::SineWave::new(110u32 * overtone)
-            .amplify( (0.25 / voices) )
-            .fade_in(Duration::from_millis(200 * delay));
-        channel[n].append(source);
+    println!("Prepared {} sources", sources.len());
+
+    for n in 0..(sources.len()) {
+        println!("Preparing source {}", n);
+        channel.push( Sink::new(&endpoint) );
+        let source = sources.pop().unwrap();
+        channel[n].append( source.buffered().repeat_infinite() );
     }
+
+    println!("Prepared {} channels", channel.len());
 
     let volume_curve = config::to_b_spline(config.structure);
 
@@ -101,7 +127,7 @@ fn main() {
 
         let t = step_t * step;
         let volume = volume_curve.point( t );
-        println!("v: {}, t: {}", volume, t);
+        // println!("v: {}, t: {}", volume, t);
         set_volume(&mut channel, volume)
     }
 

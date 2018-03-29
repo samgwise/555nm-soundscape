@@ -5,7 +5,15 @@
   structure_duration_ms: 50000
   voice_limit: 16
   resources:
-    - path: test/path/to/file.wav
+    - path: example/samples/drum-layer1.flac
+      min_threshhold: 1
+      max_threshold: 100
+    - path: example/samples/drum-layer2.flac
+      min_threshhold: 2
+      max_threshold: 100
+    - path: example/samples/drum-layer3.flac
+      min_threshhold: 4
+      max_threshold: 100
 
   # Defines a B-Spline curve as our cyclic structure
   structure:
