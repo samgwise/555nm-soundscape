@@ -13,25 +13,12 @@ use std::time::Duration;
 use std::env;
 use std::net::{UdpSocket, SocketAddrV4};
 use std::str::FromStr;
-use std::fs::File;
-use std::io::prelude::*;
+
+mod config;
 
 enum OscEvent {
     Volume(f32),
     NoAction,
-}
-
-// Configuration structs
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct SoundResource {
-    path: String,
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct Configuration {
-    resources:  Vec<SoundResource>,
-    host:       String,
-    port:       u32,
 }
 
 fn main() {
@@ -56,18 +43,11 @@ fn main() {
 
 
     // Read config
-    println!("loading config from '{}'...", config_file_name);
-    let mut config_file = File::open(config_file_name).expect("Config file not found");
-
-    let mut config_contents = String::new();
-    config_file.read_to_string(&mut config_contents).expect("Encountered an error when reading from config file");
-
-    println!("loaded config:\n{}", config_contents);
-    let config: Configuration = serde_yaml::from_str(&config_contents).unwrap();
-    println!("{:?}", config);
+    let config = config::load_from_file(&config_file_name).expect("Unable to continue without valid configuration");
+    println!("config: {:?}", config);
 
     // try bulding listening address
-    let address = match SocketAddrV4::from_str(format!("{}:{}", config.host, config.port).as_str()) {
+    let address = match SocketAddrV4::from_str( format!("{}:{}", config.host, config.port).as_str() ) {
         Ok(addr)    => addr,
         Err(_)      => {
             println!("Unable to use host and port config fields ('{}:{}') as an address!", config.host, config.port);
