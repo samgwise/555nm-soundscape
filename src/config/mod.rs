@@ -2,8 +2,17 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use serde_yaml;
+use bspline;
 
 // Configuration structs
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct BSplineParams {
+    pub points: Vec<f32>,
+    pub knots: Vec<f32>,
+    pub degree: usize,
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct SoundResource {
     pub path: String,
@@ -11,9 +20,13 @@ pub struct SoundResource {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Soundscape {
-    pub resources:  Vec<SoundResource>,
-    pub host:       String,
-    pub port:       u32,
+    pub host:                   String,
+    pub port:                   u32,
+    pub resources:              Vec<SoundResource>,
+    pub structure:              BSplineParams,
+    pub metro_step_ms:          i64,
+    pub structure_duration_ms:  usize,
+    pub voice_limit:            usize,
 }
 
 pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {
@@ -32,4 +45,8 @@ pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {
         },
         Err (e) => Err( format!("Error reading from file '{}': {}", file_name, e) ),
     }
+}
+
+pub fn to_b_spline(params: BSplineParams) -> bspline::BSpline<f32> {
+    bspline::BSpline::new(params.degree, params.points, params.knots)
 }

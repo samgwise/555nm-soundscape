@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_yaml;
+extern crate bspline;
+extern crate timer;
+extern crate chrono;
 
 extern crate rosc;
 use rosc::OscPacket;
@@ -13,6 +16,7 @@ use std::time::Duration;
 use std::env;
 use std::net::{UdpSocket, SocketAddrV4};
 use std::str::FromStr;
+use std::sync::mpsc::channel;
 
 mod config;
 
@@ -55,8 +59,15 @@ fn main() {
         }
     };
 
+    // setup metronome
+    let (tx_metro, rx_metro) = channel();
+    let metro = timer::MessageTimer::new(tx_metro);
+
+    let metro_rate = config.metro_step_ms;
+    let guard_metro = metro.schedule_repeating(chrono::Duration::milliseconds(metro_rate), 0);
+
     // Setup audio
-    let channel_count = 16;
+    let channel_count = config.voice_limit;
     let voices = channel_count as f32;
 
     let endpoint = rodio::default_endpoint().unwrap();
@@ -75,32 +86,51 @@ fn main() {
         channel[n].append(source);
     }
 
-    // Setup socket
-    let socket = UdpSocket::bind(address).unwrap();
-    println!("Listening on {}...", address);
+    let volume_curve = config::to_b_spline(config.structure);
 
-    // Block while listening for OSC messages
-    let mut packet_buffer = [0u8; rosc::decoder::MTU];
-
+    let duration = config.structure_duration_ms as f32;
+    let step_t = volume_curve.knot_domain().1 / duration;
+    let mut step = 0f32;
+    let step_increment = metro_rate as f32;
     loop {
-        match socket.recv_from(&mut packet_buffer) {
-            Ok((bytes, _remote_address)) => {
-                let routing = route_osc(
-                    rosc::decoder::decode(&packet_buffer[..bytes]).unwrap()
-                );
-
-                match routing {
-                    OscEvent::Volume(volume) => set_volume(&mut channel, volume),
-                    OscEvent::NoAction       => println!("No action defined."),
-                }
-            }
-            Err(e) => {
-                // Log to console and quit the recv loop
-                println!("Error receiving from socket: {}", e);
-                break;
-            }
+        let _ = rx_metro.recv();
+        step += step_increment;
+        if step > duration {
+            step = 0f32;
         }
+
+        let t = step_t * step;
+        let volume = volume_curve.point( t );
+        println!("v: {}, t: {}", volume, t);
+        set_volume(&mut channel, volume)
     }
+
+    // // Setup socket
+    // let socket = UdpSocket::bind(address).unwrap();
+    // println!("Listening on {}...", address);
+    //
+    // // Block while listening for OSC messages
+    // let mut packet_buffer = [0u8; rosc::decoder::MTU];
+    //
+    // loop {
+    //     match socket.recv_from(&mut packet_buffer) {
+    //         Ok((bytes, _remote_address)) => {
+    //             let routing = route_osc(
+    //                 rosc::decoder::decode(&packet_buffer[..bytes]).unwrap()
+    //             );
+    //
+    //             match routing {
+    //                 OscEvent::Volume(volume) => set_volume(&mut channel, volume),
+    //                 OscEvent::NoAction       => println!("No action defined."),
+    //             }
+    //         }
+    //         Err(e) => {
+    //             // Log to console and quit the recv loop
+    //             println!("Error receiving from socket: {}", e);
+    //             break;
+    //         }
+    //     }
+    // }
 }
 
 fn route_osc(packet: OscPacket) -> OscEvent {
