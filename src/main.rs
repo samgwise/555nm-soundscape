@@ -77,7 +77,7 @@ fn main() {
     let mut channel = Vec::new();
     for res in &config.resources {
         println!("Adding: {:?}", res);
-        let sound_source = soundscape::resource_to_sound_source(res, &endpoint);
+        let mut sound_source = soundscape::resource_to_sound_source(res, &endpoint);
         let source =
             config::res_to_file(&res.path).and_then(|file| {
                 match rodio::Decoder::new( BufReader::new(file) ) {
@@ -85,9 +85,16 @@ fn main() {
                     Err (e) => Err( format!("Error creating audio source for '{}': {}", res.path, e) ),
                 }
             })
-            .expect("Error reading audio resource");
+            .expect("Error reading audio resource")
+            .buffered()
+            .repeat_infinite();
 
-        sound_source.channel.append(source.repeat_infinite());
+        sound_source.channel.set_volume(0.0);
+
+        match res.reverb {
+            Some (ref params) => sound_source.channel.append(source.reverb(Duration::from_millis(params.delay_ms), params.mix_t)),
+            None => sound_source.channel.append(source),
+        }
         channel.push(sound_source)
     }
 
@@ -119,7 +126,15 @@ fn main() {
 
         let t = step_t * step;
         let volume = volume_curve.point( t );
-        set_volume(&mut channel, volume);
+        for c in &mut channel {
+            if c.max_threshold > volume && c.min_threshold < volume {
+                c.channel.set_volume(1.0)
+            }
+            else {
+                c.channel.set_volume(0.0)
+            }
+        }
+        // set_volume(&mut channel, volume);
 
         if step % 1000.0 == 0.0 {
             println!("v: {}, t: {}", volume, t);

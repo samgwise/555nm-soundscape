@@ -18,6 +18,13 @@ pub struct SoundResource {
     pub path: String,
     pub min_threshold: f32,
     pub max_threshold: f32,
+    pub reverb: Option<ReverbParams>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct ReverbParams {
+    pub delay_ms:   u64,
+    pub mix_t:      f32,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
