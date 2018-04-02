@@ -127,11 +127,21 @@ fn main() {
         let t = step_t * step;
         let volume = volume_curve.point( t );
         for c in &mut channel {
+            soundscape::update(c); // execute volume fade steps
+
             if c.max_threshold > volume && c.min_threshold < volume {
-                c.channel.set_volume(1.0)
+                // c.channel.set_volume(1.0)
+                if c.is_live == false {
+                    c.is_live = true;
+                    soundscape::volume_fade(c, 1.0, 100)
+                }
             }
             else {
-                c.channel.set_volume(0.0)
+                // c.channel.set_volume(0.0)
+                if c.is_live == true {
+                    c.is_live = false;
+                    soundscape::volume_fade(c, 0.0, 100)
+                }
             }
         }
         // set_volume(&mut channel, volume);
