@@ -133,7 +133,8 @@ fn main() {
                 // c.channel.set_volume(1.0)
                 if c.is_live == false {
                     c.is_live = true;
-                    soundscape::volume_fade(c, 1.0, 100)
+                    let volume = 1.0 + c.gain;
+                    soundscape::volume_fade(c, volume, 100)
                 }
             }
             else {

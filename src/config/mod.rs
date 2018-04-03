@@ -16,8 +16,9 @@ pub struct BSplineParams {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct SoundResource {
     pub path: String,
-    pub min_threshold: f32,
-    pub max_threshold: f32,
+    pub min_threshold:  f32,
+    pub max_threshold:  f32,
+    pub gain:           f32,
     pub reverb: Option<ReverbParams>,
 }
 
