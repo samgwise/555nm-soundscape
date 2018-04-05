@@ -34,7 +34,7 @@ pub struct Soundscape {
     pub port:                   u32,
     pub resources:              Vec<SoundResource>,
     pub structure:              BSplineParams,
-    pub metro_step_ms:          i64,
+    pub metro_step_ms:          u64,
     pub structure_duration_ms:  usize,
     pub voice_limit:            usize,
 }
@@ -57,8 +57,10 @@ pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {
     }
 }
 
-pub fn to_b_spline(params: BSplineParams) -> bspline::BSpline<f32> {
-    bspline::BSpline::new(params.degree, params.points, params.knots)
+pub fn to_b_spline(params: &BSplineParams) -> bspline::BSpline<f32> {
+    let points = params.points.to_owned();
+    let knots = params.knots.to_owned();
+    bspline::BSpline::new(params.degree, points, knots)
 }
 
 pub fn res_to_file(resource: &String) -> Result<File, String> {

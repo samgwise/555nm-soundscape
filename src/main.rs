@@ -66,12 +66,13 @@ fn main() {
     let (tx_metro, rx_metro) = channel();
     let metro = timer::MessageTimer::new(tx_metro);
 
-    let metro_rate = config.metro_step_ms;
+    let step_size_ms = config.metro_step_ms;
+    let metro_rate = step_size_ms as i64;
     let _guard_metro = metro.schedule_repeating(chrono::Duration::milliseconds(metro_rate), 0);
 
     // setup command BinaryHeap and queue first play command
     let mut future_commands = BinaryHeap::with_capacity(128);
-    future_commands.push(soundscape::play_at(0));
+    future_commands.push(soundscape::load_at(0));
 
     // Setup audio
     let channel_count = config.voice_limit;
@@ -79,47 +80,10 @@ fn main() {
 
     let endpoint = rodio::default_endpoint().expect("Error selecting audio output device");
 
-    let mut channel = Vec::new();
-    for res in &config.resources {
-        println!("Adding: {:?}", res);
-        let mut sound_source = soundscape::resource_to_sound_source(res, &endpoint);
-        let source =
-            config::res_to_file(&res.path).and_then(|file| {
-                match rodio::Decoder::new( BufReader::new(file) ) {
-                    Ok (decoder) => Ok(decoder),
-                    Err (e) => Err( format!("Error creating audio source for '{}': {}", res.path, e) ),
-                }
-            })
-            .expect("Error reading audio resource")
-            .buffered()
-            .repeat_infinite();
+    let mut channel: Vec<soundscape::SoundSource> = Vec::new();
 
-        // pause until a play command is executed
-        sound_source.channel.pause();
-        sound_source.channel.set_volume(0.0);
-
-        match res.reverb {
-            Some (ref params) => sound_source.channel.append(source.reverb(Duration::from_millis(params.delay_ms), params.mix_t)),
-            None => sound_source.channel.append(source),
-        }
-        channel.push(sound_source)
-    }
-
-    // for n in 0..(channel_count - 1) {
-    //     let overtone = n as u32;
-    //     // let voice = n as f32;
-    //     let delay = n as u64;
-    //     channel.push( Sink::new(&endpoint) );
-    //
-    //     let source =
-    //         rodio::source::SineWave::new(110u32 * overtone)
-    //         .amplify( (0.25 / voices) )
-    //         .fade_in(Duration::from_millis(200 * delay));
-    //     channel[n].append(source);
-    // }
-
-    let mut elapsed_ms = 0i64;
-    let volume_curve = config::to_b_spline(config.structure);
+    let mut elapsed_ms = 0u64;
+    let volume_curve = config::to_b_spline(&config.structure);
 
     let duration = config.structure_duration_ms as f32;
     let step_t = volume_curve.knot_domain().1 / duration;
@@ -128,7 +92,7 @@ fn main() {
     // Run loop
     loop {
         let _ = rx_metro.recv();
-        elapsed_ms += metro_rate;
+        elapsed_ms += step_size_ms;
 
         step += step_increment;
         if step > duration {
@@ -138,9 +102,17 @@ fn main() {
         // execute any commands that should be executed now or earlier
         while soundscape::is_cmd_now(future_commands.peek(), &elapsed_ms) {
             match future_commands.pop() {
-                Some(cmd) => {
-                    match cmd {
-                        Play => play(&mut channel)
+                Some(future_cmd) => {
+                    match future_cmd.command {
+                        soundscape::Cmd::Play => {
+                            println!("Executing play command at step: {}", elapsed_ms);
+                            play(&mut channel)
+                        },
+                        soundscape::Cmd::Load => {
+                            println!("Executing load command at step: {}", elapsed_ms);
+                            add_resources(&mut channel, &endpoint, &config);
+                            future_commands.push(soundscape::play_at(elapsed_ms + step_size_ms))
+                        },
                     }
                 },
                 None => println!("Expected to unpack command but no command was present. Unexpected state relating to future commands. Continuing execution."),
@@ -171,7 +143,7 @@ fn main() {
         // set_volume(&mut channel, volume);
 
         if step % 1000.0 == 0.0 {
-            println!("v: {}, t: {}", volume, t);
+            println!("v: {}, t: {}, pending commands: {}", volume, t, future_commands.len());
         }
     }
 
@@ -245,6 +217,35 @@ fn route_osc(packet: OscPacket) -> OscEvent {
             println!("No routing implemented for bundles. Received: {:?}", bundle);
             OscEvent::NoAction
         }
+    }
+}
+
+// channel actions
+
+fn add_resources(channel: &mut Vec<soundscape::SoundSource>, endpoint: &rodio::Endpoint, config: &config::Soundscape) {
+    for res in &config.resources {
+        println!("Adding: {:?}", res);
+        let mut sound_source = soundscape::resource_to_sound_source(res, &endpoint);
+        let source =
+            config::res_to_file(&res.path).and_then(|file| {
+                match rodio::Decoder::new( BufReader::new(file) ) {
+                    Ok (decoder) => Ok(decoder),
+                    Err (e) => Err( format!("Error creating audio source for '{}': {}", res.path, e) ),
+                }
+            })
+            .expect("Error reading audio resource")
+            .buffered()
+            .repeat_infinite();
+
+        // pause until a play command is executed
+        sound_source.channel.pause();
+        sound_source.channel.set_volume(0.0);
+
+        match res.reverb {
+            Some (ref params) => sound_source.channel.append(source.reverb(Duration::from_millis(params.delay_ms), params.mix_t)),
+            None => sound_source.channel.append(source),
+        }
+        channel.push(sound_source)
     }
 }
 

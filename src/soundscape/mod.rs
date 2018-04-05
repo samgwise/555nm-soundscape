@@ -56,17 +56,22 @@ pub fn volume_fade(source: &mut SoundSource, volume_target: f32, steps: u32) {
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Cmd {
     Play,
+    Load,
 }
 
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct FutureCmd {
-    command: Cmd,
-    at_tick: i64,
+    pub command: Cmd,
+    pub at_tick: u64,
 }
 
-pub fn play_at(tick: i64) -> FutureCmd {
+pub fn play_at(tick: u64) -> FutureCmd {
     FutureCmd { command: Cmd::Play, at_tick: tick }
+}
+
+pub fn load_at(tick: u64) -> FutureCmd {
+    FutureCmd { command: Cmd::Load, at_tick: tick }
 }
 
 // Explicitly implement the trait so the queue becomes a min-heap instead of a max-heap.
@@ -87,7 +92,7 @@ impl PartialOrd for FutureCmd {
     }
 }
 
-pub fn is_cmd_now(command: Option<&FutureCmd>, ticks: &i64) -> bool {
+pub fn is_cmd_now(command: Option<&FutureCmd>, ticks: &u64) -> bool {
     match command {
         Some(cmd)   => ticks >= &cmd.at_tick,
         None        => false,
