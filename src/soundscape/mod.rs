@@ -6,6 +6,8 @@ use rodio::Endpoint;
 
 use config::SoundResource;
 
+use std::cmp::Ordering;
+
 pub struct SoundSource {
     pub channel:        Sink,
     pub min_threshold:  f32,
@@ -47,5 +49,47 @@ pub fn volume_fade(source: &mut SoundSource, volume_target: f32, steps: u32) {
     }
     else {
         source.volume_step = fade_step.abs() * -1f32;
+    }
+}
+
+// Command
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum Cmd {
+    Play,
+}
+
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub struct FutureCmd {
+    command: Cmd,
+    at_tick: i64,
+}
+
+pub fn play_at(tick: i64) -> FutureCmd {
+    FutureCmd { command: Cmd::Play, at_tick: tick }
+}
+
+// Explicitly implement the trait so the queue becomes a min-heap instead of a max-heap.
+impl Ord for FutureCmd {
+    fn cmp(&self, other: &FutureCmd) -> Ordering {
+        // Notice that the we flip the ordering on costs.
+        // In case of a tie we compare positions - this step is necessary
+        // to make implementations of PartialEq and Ord consistent.
+        other.at_tick.cmp(&self.at_tick)
+            .then_with(|| self.at_tick.cmp(&other.at_tick))
+    }
+}
+
+// PartialOrd needs to be implemented as well.
+impl PartialOrd for FutureCmd {
+    fn partial_cmp(&self, other: &FutureCmd) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+pub fn is_cmd_now(command: Option<&FutureCmd>, ticks: &i64) -> bool {
+    match command {
+        Some(cmd)   => ticks >= &cmd.at_tick,
+        None        => false,
     }
 }

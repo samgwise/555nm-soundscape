@@ -18,6 +18,7 @@ use std::env;
 use std::net::{UdpSocket, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::mpsc::channel;
+use std::collections::BinaryHeap;
 
 mod config;
 mod soundscape;
@@ -66,7 +67,11 @@ fn main() {
     let metro = timer::MessageTimer::new(tx_metro);
 
     let metro_rate = config.metro_step_ms;
-    let guard_metro = metro.schedule_repeating(chrono::Duration::milliseconds(metro_rate), 0);
+    let _guard_metro = metro.schedule_repeating(chrono::Duration::milliseconds(metro_rate), 0);
+
+    // setup command BinaryHeap and queue first play command
+    let mut future_commands = BinaryHeap::with_capacity(128);
+    future_commands.push(soundscape::play_at(0));
 
     // Setup audio
     let channel_count = config.voice_limit;
@@ -89,6 +94,8 @@ fn main() {
             .buffered()
             .repeat_infinite();
 
+        // pause until a play command is executed
+        sound_source.channel.pause();
         sound_source.channel.set_volume(0.0);
 
         match res.reverb {
@@ -111,17 +118,33 @@ fn main() {
     //     channel[n].append(source);
     // }
 
+    let mut elapsed_ms = 0i64;
     let volume_curve = config::to_b_spline(config.structure);
 
     let duration = config.structure_duration_ms as f32;
     let step_t = volume_curve.knot_domain().1 / duration;
     let mut step = 0f32;
     let step_increment = metro_rate as f32;
+    // Run loop
     loop {
         let _ = rx_metro.recv();
+        elapsed_ms += metro_rate;
+
         step += step_increment;
         if step > duration {
             step = 0f32;
+        }
+
+        // execute any commands that should be executed now or earlier
+        while soundscape::is_cmd_now(future_commands.peek(), &elapsed_ms) {
+            match future_commands.pop() {
+                Some(cmd) => {
+                    match cmd {
+                        Play => play(&mut channel)
+                    }
+                },
+                None => println!("Expected to unpack command but no command was present. Unexpected state relating to future commands. Continuing execution."),
+            }
         }
 
         let t = step_t * step;
@@ -228,5 +251,11 @@ fn route_osc(packet: OscPacket) -> OscEvent {
 fn set_volume(channels: &mut Vec<soundscape::SoundSource>, volume: f32) {
     for c in channels {
         c.channel.set_volume(volume)
+    }
+}
+
+fn play(channels: &mut Vec<soundscape::SoundSource>) {
+    for c in channels {
+        c.channel.play()
     }
 }
