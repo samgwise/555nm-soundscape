@@ -4,6 +4,9 @@ use rodio::Sink;
 use rodio::Source;
 use rodio::Endpoint;
 
+use bspline;
+
+use config;
 use config::SoundResource;
 
 use std::cmp::Ordering;
@@ -52,11 +55,31 @@ pub fn volume_fade(source: &mut SoundSource, volume_target: f32, steps: u32) {
     }
 }
 
+// Structure
+pub struct Structure {
+    pub spline:         bspline::BSpline<f32>,
+    pub duration:       f32,
+    pub step_t:         f32,
+    pub step:           f32,
+}
+
+pub fn structure_from_scene(scene: &config::Scene) -> Structure {
+    let spline      = config::to_b_spline(&scene.structure);
+    let duration    = scene.duration_ms as f32;
+    let step_t      = spline.knot_domain().1 / duration;
+    Structure {
+        spline:     spline,
+        duration:   duration,
+        step_t:     step_t,
+        step:       0.0,
+    }
+}
+
 // Command
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Cmd {
     Play,
-    Load,
+    Load (usize),
     Retire,
 }
 
@@ -71,8 +94,8 @@ pub fn play_at(tick: u64) -> FutureCmd {
     FutureCmd { command: Cmd::Play, at_tick: tick }
 }
 
-pub fn load_at(tick: u64) -> FutureCmd {
-    FutureCmd { command: Cmd::Load, at_tick: tick }
+pub fn load_at(scene_index: usize, tick: u64) -> FutureCmd {
+    FutureCmd { command: Cmd::Load(scene_index), at_tick: tick }
 }
 
 pub fn retire_at(tick: u64) -> FutureCmd {

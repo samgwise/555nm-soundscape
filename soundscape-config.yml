@@ -2,83 +2,85 @@
   host: 0.0.0.0
   port: 30001
   metro_step_ms: 10
-  structure_duration_ms: 50000
   voice_limit: 16
-  resources:
-    - path: example/samples/drum-layer1.flac
-      min_threshold: 1
-      max_threshold: 100
-      gain: 0
-    - path: example/samples/drum-layer2.flac
-      min_threshold: 2.5
-      max_threshold: 100
-      gain: 0
-    - path: example/samples/drum-layer3.flac
-      min_threshold: 4
-      max_threshold: 100
-      gain: 0
+  scenes:
+    - name: Test Scene 1
+      duration_ms: 64000
+      resources:
+        - path: example/samples/drum-layer1.flac
+          min_threshold: 1
+          max_threshold: 100
+          gain: 0
+        - path: example/samples/drum-layer2.flac
+          min_threshold: 2.5
+          max_threshold: 100
+          gain: 0
+        - path: example/samples/drum-layer3.flac
+          min_threshold: 4
+          max_threshold: 100
+          gain: -0.05
 
-    - path: example/samples/bass-loop1.flac
-      min_threshold: 1
-      max_threshold: 4
-      gain: 0
-    - path: example/samples/bass-loop2.flac
-      min_threshold: 3.5
-      max_threshold: 100
-      gain: 0
+        - path: example/samples/bass-loop1.flac
+          min_threshold: 1
+          max_threshold: 4
+          gain: 0
+        - path: example/samples/bass-loop2.flac
+          min_threshold: 3.5
+          max_threshold: 100
+          gain: 0
 
-    - path: example/samples/pad-loop1.flac
-      min_threshold: 1.2
-      max_threshold: 100
-      gain: 0
-      reverb:
-        delay_ms: 40
-        mix_t: 0.5
-    - path: example/samples/pad-loop2a.flac
-      min_threshold: 2.7
-      max_threshold: 4.7
-      gain: 0
-      reverb:
-        delay_ms: 40
-        mix_t: 0.7
-    - path: example/samples/pad-loop2b.flac
-      min_threshold: 4.7
-      max_threshold: 100
-      gain: 0
-      reverb:
-        delay_ms: 40
-        mix_t: 0.7
+        - path: example/samples/pad-loop1.flac
+          min_threshold: 1.2
+          max_threshold: 100
+          gain: -0.05
+          reverb:
+            delay_ms: 40
+            mix_t: 0.5
+        - path: example/samples/pad-loop2a.flac
+          min_threshold: 2.7
+          max_threshold: 4.7
+          gain: -0.05
+          reverb:
+            delay_ms: 40
+            mix_t: 0.7
+        - path: example/samples/pad-loop2b.flac
+          min_threshold: 4.7
+          max_threshold: 100
+          gain: -0.05
+          reverb:
+            delay_ms: 40
+            mix_t: 0.7
 
-    - path: example/samples/panner-loop1.flac
-      min_threshold: 5
-      max_threshold: 100
-      gain: 0
+        - path: example/samples/panner-loop1.flac
+          min_threshold: 5
+          max_threshold: 100
+          gain: -0.1
 
-  # Defines a B-Spline curve as our cyclic structure
-  structure:
-    degree: 4
-    points:
-      - 1
-      - 2
-      - 4
-      - 6
-      - 6
-      - 3
-      - 2
-      - 1
-      - 1
-    knots:
-      - 0
-      - 0
-      - 0
-      - 0
-      - 0
-      - 1
-      - 2
-      - 3
-      - 4
-      - 5
-      - 5
-      - 5
-      - 5
-      - 5
+      # Defines a B-Spline curve as our cyclic structure
+      structure:
+        degree: 4
+        points:
+          - 1
+          - 2
+          - 4
+          - 6
+          - 6
+          - 3
+          - 2
+          - 1
+          - 1
+        knots:
+          - 0
+          - 0
+          - 0
+          - 0
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 5
+          - 5
+          - 5
+          - 5

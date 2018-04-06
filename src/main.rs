@@ -72,7 +72,7 @@ fn main() {
 
     // setup command BinaryHeap and queue first play command
     let mut future_commands = BinaryHeap::with_capacity(128);
-    future_commands.push(soundscape::load_at(0));
+    future_commands.push(soundscape::load_at(0, 0));
 
     // Setup audio
 
@@ -82,20 +82,21 @@ fn main() {
     let mut retired_sources: Vec<soundscape::SoundSource> = Vec::with_capacity(config.voice_limit);
 
     let mut elapsed_ms = 0u64;
-    let volume_curve = config::to_b_spline(&config.structure);
-
-    let duration = config.structure_duration_ms as f32;
-    let step_t = volume_curve.knot_domain().1 / duration;
-    let mut step = 0f32;
+    let mut dynamic_curve = soundscape::structure_from_scene(&config.scenes[0]);
+    // let volume_curve = config::to_b_spline(&config.structure);
+    //
+    // let duration = config.structure_duration_ms as f32;
+    // let step_t = volume_curve.knot_domain().1 / duration;
+    // let mut step = 0f32;
     let step_increment = metro_rate as f32;
     // Run loop
     loop {
         let _ = rx_metro.recv();
         elapsed_ms += step_size_ms;
 
-        step += step_increment;
-        if step > duration {
-            step = 0f32;
+        dynamic_curve.step += step_increment;
+        if dynamic_curve.step > dynamic_curve.duration {
+            dynamic_curve.step = 0f32;
         }
 
         // execute any commands that should be executed now or earlier
@@ -107,10 +108,17 @@ fn main() {
                             println!("Executing play command at step: {}", elapsed_ms);
                             play(&mut active_sources)
                         },
-                        soundscape::Cmd::Load => {
+                        soundscape::Cmd::Load (n) => {
                             println!("Executing load command at step: {}", elapsed_ms);
-                            add_resources(&mut active_sources, &endpoint, &config);
-                            future_commands.push(soundscape::play_at(elapsed_ms + step_size_ms))
+                            add_resources(&mut active_sources, &endpoint, &config.scenes[n]);
+                            dynamic_curve = soundscape::structure_from_scene(&config.scenes[n]);
+
+                            future_commands.push(soundscape::play_at(elapsed_ms + step_size_ms));
+                            future_commands.push(soundscape::retire_at(elapsed_ms + config.scenes[n].duration_ms));
+                            future_commands.push(soundscape::load_at(
+                                (n + 1) % config.scenes.len(),
+                                elapsed_ms + config.scenes[n].duration_ms + step_size_ms
+                            ));
                         },
                         soundscape::Cmd::Retire => {
                             println!("Executing retire command at step: {}", elapsed_ms);
@@ -122,8 +130,8 @@ fn main() {
             }
         }
 
-        let t = step_t * step;
-        let volume = volume_curve.point( t );
+        let t = dynamic_curve.step_t * dynamic_curve.step;
+        let volume = dynamic_curve.spline.point( t );
         for c in &mut active_sources {
             soundscape::update(c); // execute volume fade steps
 
@@ -142,13 +150,13 @@ fn main() {
             }
         }
 
-        // run fades and reap retired sources
+        // run fades and remove any retired sources which have finished their fade out.
         for s in &mut retired_sources {
             soundscape::update(s);
         }
         retired_sources.retain(|s| s.volume_updates > 0);
 
-        if step % 1000.0 == 0.0 {
+        if elapsed_ms % 1000 == 0 {
             println!("v: {}, t: {}, pending commands: {}", volume, t, future_commands.len());
         }
     }
@@ -229,8 +237,9 @@ fn route_osc(packet: OscPacket) -> OscEvent {
 // active_sources actions
 
 // Load sound sources from config objects
-fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, endpoint: &rodio::Endpoint, config: &config::Soundscape) {
-    for res in &config.resources {
+fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, endpoint: &rodio::Endpoint, scene: &config::Scene) {
+    println!("Loading {}", scene.name);
+    for res in &scene.resources {
         println!("Adding: {:?}", res);
         let mut sound_source = soundscape::resource_to_sound_source(res, &endpoint);
         let source =

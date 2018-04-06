@@ -9,17 +9,17 @@ use bspline;
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct BSplineParams {
     pub points: Vec<f32>,
-    pub knots: Vec<f32>,
+    pub knots:  Vec<f32>,
     pub degree: usize,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct SoundResource {
-    pub path: String,
+    pub path:           String,
     pub min_threshold:  f32,
     pub max_threshold:  f32,
     pub gain:           f32,
-    pub reverb: Option<ReverbParams>,
+    pub reverb:         Option<ReverbParams>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -29,13 +29,20 @@ pub struct ReverbParams {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct Scene {
+    pub name:           String,
+    pub duration_ms:    u64,
+    pub resources:      Vec<SoundResource>,
+    pub structure:      BSplineParams,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Soundscape {
     pub host:                   String,
     pub port:                   u32,
-    pub resources:              Vec<SoundResource>,
-    pub structure:              BSplineParams,
+    pub scenes:                 Vec<Scene>,
     pub metro_step_ms:          u64,
-    pub structure_duration_ms:  usize,
+    // pub structure_duration_ms:  usize,
     pub voice_limit:            usize,
 }
 
