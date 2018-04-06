@@ -9,7 +9,6 @@ extern crate rosc;
 use rosc::OscPacket;
 
 extern crate rodio;
-use rodio::Sink;
 use rodio::Source;
 
 use std::time::Duration;

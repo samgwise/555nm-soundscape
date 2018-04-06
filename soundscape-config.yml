@@ -36,6 +36,10 @@
           reverb:
             delay_ms: 40
             mix_t: 0.5
+          position:
+            - 2
+            - 1
+            - 1
         - path: example/samples/pad-loop2a.flac
           min_threshold: 2.7
           max_threshold: 4.7
@@ -43,6 +47,10 @@
           reverb:
             delay_ms: 40
             mix_t: 0.7
+          position:
+            - -1.5
+            - 1
+            - 1
         - path: example/samples/pad-loop2b.flac
           min_threshold: 4.7
           max_threshold: 100
@@ -50,11 +58,19 @@
           reverb:
             delay_ms: 40
             mix_t: 0.7
+          position:
+            - -1.5
+            - 1
+            - 1
 
         - path: example/samples/panner-loop1.flac
           min_threshold: 5
           max_threshold: 100
-          gain: -0.1
+          gain: 1.5
+          position:
+            - 0
+            - 2
+            - -0.5
 
       # Defines a B-Spline curve as our cyclic structure
       structure:

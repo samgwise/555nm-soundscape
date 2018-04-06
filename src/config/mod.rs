@@ -20,6 +20,7 @@ pub struct SoundResource {
     pub max_threshold:  f32,
     pub gain:           f32,
     pub reverb:         Option<ReverbParams>,
+    pub position:       Option<[f32; 3]>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

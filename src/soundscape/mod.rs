@@ -1,7 +1,6 @@
 
 use rodio;
-use rodio::Sink;
-use rodio::Source;
+use rodio::SpatialSink;
 use rodio::Endpoint;
 
 use bspline;
@@ -12,7 +11,7 @@ use config::SoundResource;
 use std::cmp::Ordering;
 
 pub struct SoundSource {
-    pub channel:        Sink,
+    pub channel:        rodio::SpatialSink,
     pub min_threshold:  f32,
     pub max_threshold:  f32,
     pub gain:           f32,
@@ -23,8 +22,13 @@ pub struct SoundSource {
 }
 
 pub fn resource_to_sound_source(res: &SoundResource, endpoint: &Endpoint) -> SoundSource {
+    let position = match res.position {
+        Some (pos)  => pos,
+        None        => [0.0, 1.0, 1.0],
+    };
+
     SoundSource {
-        channel:        Sink::new(endpoint),
+        channel:        SpatialSink::new(endpoint, position, [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0]),
         min_threshold:  res.min_threshold,
         max_threshold:  res.max_threshold,
         gain:           res.gain,
