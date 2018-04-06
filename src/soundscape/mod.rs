@@ -57,6 +57,7 @@ pub fn volume_fade(source: &mut SoundSource, volume_target: f32, steps: u32) {
 pub enum Cmd {
     Play,
     Load,
+    Retire,
 }
 
 
@@ -72,6 +73,10 @@ pub fn play_at(tick: u64) -> FutureCmd {
 
 pub fn load_at(tick: u64) -> FutureCmd {
     FutureCmd { command: Cmd::Load, at_tick: tick }
+}
+
+pub fn retire_at(tick: u64) -> FutureCmd {
+    FutureCmd { command: Cmd::Retire, at_tick: tick }
 }
 
 // Explicitly implement the trait so the queue becomes a min-heap instead of a max-heap.

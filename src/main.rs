@@ -75,12 +75,11 @@ fn main() {
     future_commands.push(soundscape::load_at(0));
 
     // Setup audio
-    let channel_count = config.voice_limit;
-    let voices = channel_count as f32;
 
     let endpoint = rodio::default_endpoint().expect("Error selecting audio output device");
 
-    let mut channel: Vec<soundscape::SoundSource> = Vec::new();
+    let mut active_sources: Vec<soundscape::SoundSource> = Vec::with_capacity(config.voice_limit);
+    let mut retired_sources: Vec<soundscape::SoundSource> = Vec::with_capacity(config.voice_limit);
 
     let mut elapsed_ms = 0u64;
     let volume_curve = config::to_b_spline(&config.structure);
@@ -106,13 +105,17 @@ fn main() {
                     match future_cmd.command {
                         soundscape::Cmd::Play => {
                             println!("Executing play command at step: {}", elapsed_ms);
-                            play(&mut channel)
+                            play(&mut active_sources)
                         },
                         soundscape::Cmd::Load => {
                             println!("Executing load command at step: {}", elapsed_ms);
-                            add_resources(&mut channel, &endpoint, &config);
+                            add_resources(&mut active_sources, &endpoint, &config);
                             future_commands.push(soundscape::play_at(elapsed_ms + step_size_ms))
                         },
+                        soundscape::Cmd::Retire => {
+                            println!("Executing retire command at step: {}", elapsed_ms);
+                            retire_resources(&mut active_sources, &mut retired_sources);
+                        }
                     }
                 },
                 None => println!("Expected to unpack command but no command was present. Unexpected state relating to future commands. Continuing execution."),
@@ -121,11 +124,10 @@ fn main() {
 
         let t = step_t * step;
         let volume = volume_curve.point( t );
-        for c in &mut channel {
+        for c in &mut active_sources {
             soundscape::update(c); // execute volume fade steps
 
             if c.max_threshold > volume && c.min_threshold < volume {
-                // c.channel.set_volume(1.0)
                 if c.is_live == false {
                     c.is_live = true;
                     let volume = 1.0 + c.gain;
@@ -133,14 +135,18 @@ fn main() {
                 }
             }
             else {
-                // c.channel.set_volume(0.0)
                 if c.is_live == true {
                     c.is_live = false;
                     soundscape::volume_fade(c, 0.0, 100)
                 }
             }
         }
-        // set_volume(&mut channel, volume);
+
+        // run fades and reap retired sources
+        for s in &mut retired_sources {
+            soundscape::update(s);
+        }
+        retired_sources.retain(|s| s.volume_updates > 0);
 
         if step % 1000.0 == 0.0 {
             println!("v: {}, t: {}, pending commands: {}", volume, t, future_commands.len());
@@ -162,7 +168,7 @@ fn main() {
     //             );
     //
     //             match routing {
-    //                 OscEvent::Volume(volume) => set_volume(&mut channel, volume),
+    //                 OscEvent::Volume(volume) => set_volume(&mut active_sources, volume),
     //                 OscEvent::NoAction       => println!("No action defined."),
     //             }
     //         }
@@ -220,9 +226,10 @@ fn route_osc(packet: OscPacket) -> OscEvent {
     }
 }
 
-// channel actions
+// active_sources actions
 
-fn add_resources(channel: &mut Vec<soundscape::SoundSource>, endpoint: &rodio::Endpoint, config: &config::Soundscape) {
+// Load sound sources from config objects
+fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, endpoint: &rodio::Endpoint, config: &config::Soundscape) {
     for res in &config.resources {
         println!("Adding: {:?}", res);
         let mut sound_source = soundscape::resource_to_sound_source(res, &endpoint);
@@ -245,7 +252,15 @@ fn add_resources(channel: &mut Vec<soundscape::SoundSource>, endpoint: &rodio::E
             Some (ref params) => sound_source.channel.append(source.reverb(Duration::from_millis(params.delay_ms), params.mix_t)),
             None => sound_source.channel.append(source),
         }
-        channel.push(sound_source)
+        active_sources.push(sound_source)
+    }
+}
+
+// Move from active Vec to retired Vec and apply fade out to each channel
+fn retire_resources(active_sources: &mut Vec<soundscape::SoundSource>, retired_sources: &mut Vec<soundscape::SoundSource>) {
+    retired_sources.append(active_sources);
+    for s in retired_sources {
+        soundscape::volume_fade(s, -0.0, 100);
     }
 }
 
