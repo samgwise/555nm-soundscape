@@ -18,8 +18,11 @@ use std::net::{UdpSocket, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::mpsc::channel;
 use std::collections::BinaryHeap;
+use std::fs::File;
+// use std::io::prelude::*;
 
 mod config;
+use config::openScene;
 mod soundscape;
 
 enum OscEvent {
@@ -61,6 +64,17 @@ fn main() {
         }
     };
 
+    // test scene files
+    for scene_file in &config.scenes {
+        print!("Checking scene file: '{}'...", scene_file);
+        let scene = openScene(scene_file);
+        for resource in &scene.resources {
+            File::open(&resource.path)
+                .expect( &format!("Error opening content for resource '{}' from scene '{}'", resource.path, scene_file) );
+        }
+        println!("Scene OK", );
+    }
+
     // setup metronome
     let (tx_metro, rx_metro) = channel();
     let metro = timer::MessageTimer::new(tx_metro);
@@ -81,7 +95,7 @@ fn main() {
     let mut retired_sources: Vec<soundscape::SoundSource> = Vec::with_capacity(config.voice_limit);
 
     let mut elapsed_ms = 0u64;
-    let mut dynamic_curve = soundscape::structure_from_scene(&config.scenes[0]);
+    let mut dynamic_curve = soundscape::structure_from_scene(&openScene(&config.scenes[0]));
     // let volume_curve = config::to_b_spline(&config.structure);
     //
     // let duration = config.structure_duration_ms as f32;
@@ -109,14 +123,15 @@ fn main() {
                         },
                         soundscape::Cmd::Load (n) => {
                             println!("Executing load command at step: {}", elapsed_ms);
-                            add_resources(&mut active_sources, &endpoint, &config.scenes[n]);
-                            dynamic_curve = soundscape::structure_from_scene(&config.scenes[n]);
+                            let scene = openScene(&config.scenes[n]);
+                            add_resources(&mut active_sources, &endpoint, &scene);
+                            dynamic_curve = soundscape::structure_from_scene(&scene);
 
                             future_commands.push(soundscape::play_at(elapsed_ms + step_size_ms));
-                            future_commands.push(soundscape::retire_at(elapsed_ms + config.scenes[n].duration_ms));
+                            future_commands.push(soundscape::retire_at(elapsed_ms + scene.duration_ms));
                             future_commands.push(soundscape::load_at(
                                 (n + 1) % config.scenes.len(),
-                                elapsed_ms + config.scenes[n].duration_ms + step_size_ms
+                                elapsed_ms + scene.duration_ms + step_size_ms
                             ));
                         },
                         soundscape::Cmd::Retire => {
@@ -137,7 +152,7 @@ fn main() {
             if c.max_threshold > volume && c.min_threshold < volume {
                 if c.is_live == false {
                     c.is_live = true;
-                    let volume = 1.0 + c.gain;
+                    let volume = config.default_level + c.gain;
                     soundscape::volume_fade(c, volume, 100)
                 }
             }

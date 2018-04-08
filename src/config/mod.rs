@@ -37,14 +37,27 @@ pub struct Scene {
     pub structure:      BSplineParams,
 }
 
+pub fn openScene(file: &String) -> Scene {
+    let mut scene_file = File::open(file)
+        .expect( &format!("Error opening file '{}'", file) );
+
+    let mut scene_contents = String::new();
+    scene_file.read_to_string(&mut scene_contents)
+        .expect( &format!("Error reading scene file '{}'", file) );
+
+    serde_yaml::from_str(&scene_contents)
+        .expect( &format!("Error parsing scene file '{}'", file) )
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Soundscape {
     pub host:                   String,
     pub port:                   u32,
-    pub scenes:                 Vec<Scene>,
+    pub scenes:                 Vec<String>,
     pub metro_step_ms:          u64,
     // pub structure_duration_ms:  usize,
     pub voice_limit:            usize,
+    pub default_level:          f32,
 }
 
 pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {
