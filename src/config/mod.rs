@@ -50,9 +50,15 @@ pub fn openScene(file: &String) -> Scene {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct Address {
+    pub host:   String,
+    pub port:  u32,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Soundscape {
-    pub host:                   String,
-    pub port:                   u32,
+    pub listen_addr:            Address,
+    pub subscribers:            Vec<Address>,
     pub scenes:                 Vec<String>,
     pub metro_step_ms:          u64,
     // pub structure_duration_ms:  usize,

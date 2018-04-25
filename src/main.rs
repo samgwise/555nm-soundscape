@@ -16,18 +16,28 @@ use std::io::BufReader;
 use std::env;
 use std::net::{UdpSocket, SocketAddrV4};
 use std::str::FromStr;
-use std::sync::mpsc::channel;
+use std::sync::mpsc;
+
 use std::collections::BinaryHeap;
 use std::fs::File;
 // use std::io::prelude::*;
+use std::thread;
 
 mod config;
 use config::openScene;
 mod soundscape;
 
+#[derive(Debug, Copy, Clone)]
 enum OscEvent {
     Volume(f32),
     NoAction,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum AppMsg {
+    Osc(OscEvent),
+    MetroTick,
+    Error
 }
 
 fn main() {
@@ -56,10 +66,10 @@ fn main() {
     println!("config: {:?}", config);
 
     // try bulding listening address
-    let address = match SocketAddrV4::from_str( format!("{}:{}", config.host, config.port).as_str() ) {
+    let address = match SocketAddrV4::from_str( format!("{}:{}", config.listen_addr.host, config.listen_addr.port).as_str() ) {
         Ok(addr)    => addr,
         Err(_)      => {
-            println!("Unable to use host and port config fields ('{}:{}') as an address!", config.host, config.port);
+            println!("Unable to use host and port config fields ('{}:{}') as an address!", config.listen_addr.host, config.listen_addr.port);
             ::std::process::exit(1)
         }
     };
@@ -76,16 +86,42 @@ fn main() {
     }
 
     // setup metronome
-    let (tx_metro, rx_metro) = channel();
+    let (tx_app_msg, rx_app_msg) = mpsc::channel();
+    let tx_metro = mpsc::Sender::clone(&tx_app_msg);
     let metro = timer::MessageTimer::new(tx_metro);
 
     let step_size_ms = config.metro_step_ms;
     let metro_rate = step_size_ms as i64;
-    let _guard_metro = metro.schedule_repeating(chrono::Duration::milliseconds(metro_rate), 0);
+    let _guard_metro = metro.schedule_repeating(chrono::Duration::milliseconds(metro_rate), AppMsg::MetroTick);
 
     // setup command BinaryHeap and queue first play command
     let mut future_commands = BinaryHeap::with_capacity(128);
     future_commands.push(soundscape::load_at(0, 0));
+
+    // Setup socket
+    let _listener = thread::spawn(move || {
+        let socket = UdpSocket::bind(address).unwrap();
+        println!("Listening on {}...", address);
+
+        // Block while listening for OSC messages
+        let mut packet_buffer = [0u8; rosc::decoder::MTU];
+
+        loop {
+            match socket.recv_from(&mut packet_buffer) {
+                Ok((bytes, _remote_address)) => {
+                    let action = route_osc(
+                        rosc::decoder::decode(&packet_buffer[..bytes]).unwrap()
+                    );
+                    tx_app_msg.send(AppMsg::Osc(action)).unwrap();
+                }
+                Err(e) => {
+                    // Log to console and quit the recv loop
+                    println!("Error receiving from socket: {}", e);
+                    // break;
+                }
+            }
+        }
+    });
 
     // Setup audio
 
@@ -104,103 +140,93 @@ fn main() {
     let step_increment = metro_rate as f32;
     // Run loop
     loop {
-        let _ = rx_metro.recv();
-        elapsed_ms += step_size_ms;
+        let message = match rx_app_msg.recv() {
+            Ok(msg) => msg,
+            Err (e) => {
+                println!("Error receiving AppMsg: {}", e);
+                AppMsg::Error
+            }
+        };
+        match message {
+            AppMsg::Error => (),
+            AppMsg::Osc (action) => {
+                match action {
+                    _ => println!("No action defined for {:?}", action),
+                }
+            }
+            AppMsg::MetroTick => {
+                elapsed_ms += step_size_ms;
 
-        dynamic_curve.step += step_increment;
-        if dynamic_curve.step > dynamic_curve.duration {
-            dynamic_curve.step = 0f32;
-        }
+                dynamic_curve.step += step_increment;
+                if dynamic_curve.step > dynamic_curve.duration {
+                    dynamic_curve.step = 0f32;
+                }
 
-        // execute any commands that should be executed now or earlier
-        while soundscape::is_cmd_now(future_commands.peek(), &elapsed_ms) {
-            match future_commands.pop() {
-                Some(future_cmd) => {
-                    match future_cmd.command {
-                        soundscape::Cmd::Play => {
-                            println!("Executing play command at step: {}", elapsed_ms);
-                            play(&mut active_sources)
+                // execute any commands that should be executed now or earlier
+                while soundscape::is_cmd_now(future_commands.peek(), &elapsed_ms) {
+                    match future_commands.pop() {
+                        Some(future_cmd) => {
+                            match future_cmd.command {
+                                soundscape::Cmd::Play => {
+                                    println!("Executing play command at step: {}", elapsed_ms);
+                                    play(&mut active_sources)
+                                },
+                                soundscape::Cmd::Load (n) => {
+                                    println!("Executing load command at step: {}", elapsed_ms);
+                                    let scene = openScene(&config.scenes[n]);
+                                    add_resources(&mut active_sources, &endpoint, &scene);
+                                    dynamic_curve = soundscape::structure_from_scene(&scene);
+
+                                    future_commands.push(soundscape::play_at(elapsed_ms + step_size_ms));
+                                    future_commands.push(soundscape::retire_at(elapsed_ms + scene.duration_ms));
+                                    future_commands.push(soundscape::load_at(
+                                            (n + 1) % config.scenes.len(),
+                                            elapsed_ms + scene.duration_ms + step_size_ms
+                                            ));
+                                },
+                                soundscape::Cmd::Retire => {
+                                    println!("Executing retire command at step: {}", elapsed_ms);
+                                    retire_resources(&mut active_sources, &mut retired_sources);
+                                }
+                            }
                         },
-                        soundscape::Cmd::Load (n) => {
-                            println!("Executing load command at step: {}", elapsed_ms);
-                            let scene = openScene(&config.scenes[n]);
-                            add_resources(&mut active_sources, &endpoint, &scene);
-                            dynamic_curve = soundscape::structure_from_scene(&scene);
+                        None => println!("Expected to unpack command but no command was present. Unexpected state relating to future commands. Continuing execution."),
+                    }
+                }
 
-                            future_commands.push(soundscape::play_at(elapsed_ms + step_size_ms));
-                            future_commands.push(soundscape::retire_at(elapsed_ms + scene.duration_ms));
-                            future_commands.push(soundscape::load_at(
-                                (n + 1) % config.scenes.len(),
-                                elapsed_ms + scene.duration_ms + step_size_ms
-                            ));
-                        },
-                        soundscape::Cmd::Retire => {
-                            println!("Executing retire command at step: {}", elapsed_ms);
-                            retire_resources(&mut active_sources, &mut retired_sources);
+                let t = dynamic_curve.step_t * dynamic_curve.step;
+                let volume = dynamic_curve.spline.point( t );
+                for c in &mut active_sources {
+                    soundscape::update(c); // execute volume fade steps
+
+                    if c.max_threshold > volume && c.min_threshold < volume {
+                        if c.is_live == false {
+                            c.is_live = true;
+                            let volume = config.default_level + c.gain;
+                            soundscape::volume_fade(c, volume, 100)
                         }
                     }
-                },
-                None => println!("Expected to unpack command but no command was present. Unexpected state relating to future commands. Continuing execution."),
-            }
-        }
+                    else {
+                        if c.is_live == true {
+                            c.is_live = false;
+                            soundscape::volume_fade(c, 0.0, 100)
+                        }
+                    }
+                }
 
-        let t = dynamic_curve.step_t * dynamic_curve.step;
-        let volume = dynamic_curve.spline.point( t );
-        for c in &mut active_sources {
-            soundscape::update(c); // execute volume fade steps
+                // run fades and remove any retired sources which have finished their fade out.
+                for s in &mut retired_sources {
+                    soundscape::update(s);
+                }
+                retired_sources.retain(|s| s.volume_updates > 0);
 
-            if c.max_threshold > volume && c.min_threshold < volume {
-                if c.is_live == false {
-                    c.is_live = true;
-                    let volume = config.default_level + c.gain;
-                    soundscape::volume_fade(c, volume, 100)
+                if elapsed_ms % 1000 == 0 {
+                    println!("v: {}, t: {}, pending commands: {}", volume, t, future_commands.len());
                 }
             }
-            else {
-                if c.is_live == true {
-                    c.is_live = false;
-                    soundscape::volume_fade(c, 0.0, 100)
-                }
-            }
-        }
-
-        // run fades and remove any retired sources which have finished their fade out.
-        for s in &mut retired_sources {
-            soundscape::update(s);
-        }
-        retired_sources.retain(|s| s.volume_updates > 0);
-
-        if elapsed_ms % 1000 == 0 {
-            println!("v: {}, t: {}, pending commands: {}", volume, t, future_commands.len());
         }
     }
 
-    // // Setup socket
-    // let socket = UdpSocket::bind(address).unwrap();
-    // println!("Listening on {}...", address);
-    //
-    // // Block while listening for OSC messages
-    // let mut packet_buffer = [0u8; rosc::decoder::MTU];
-    //
-    // loop {
-    //     match socket.recv_from(&mut packet_buffer) {
-    //         Ok((bytes, _remote_address)) => {
-    //             let routing = route_osc(
-    //                 rosc::decoder::decode(&packet_buffer[..bytes]).unwrap()
-    //             );
-    //
-    //             match routing {
-    //                 OscEvent::Volume(volume) => set_volume(&mut active_sources, volume),
-    //                 OscEvent::NoAction       => println!("No action defined."),
-    //             }
-    //         }
-    //         Err(e) => {
-    //             // Log to console and quit the recv loop
-    //             println!("Error receiving from socket: {}", e);
-    //             break;
-    //         }
-    //     }
-    // }
 }
 
 fn route_osc(packet: OscPacket) -> OscEvent {
