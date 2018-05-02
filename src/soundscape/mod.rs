@@ -69,7 +69,7 @@ pub struct Structure {
 
 pub fn structure_from_scene(scene: &config::Scene) -> Structure {
     let spline      = config::to_b_spline(&scene.structure);
-    let duration    = scene.duration_ms as f32;
+    let duration    = scene.cycle_duration_ms as f32;
     let step_t      = spline.knot_domain().1 / duration;
     Structure {
         spline:     spline,

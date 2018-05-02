@@ -1,6 +1,7 @@
 ---
 name: Test Scene 1
 duration_ms: 64000
+cycle_duration_ms: 32000
 resources:
   - path: example/samples/drum-layer1.flac
     min_threshold: 1

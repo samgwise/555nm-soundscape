@@ -31,10 +31,11 @@ pub struct ReverbParams {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Scene {
-    pub name:           String,
-    pub duration_ms:    u64,
-    pub resources:      Vec<SoundResource>,
-    pub structure:      BSplineParams,
+    pub name:               String,
+    pub duration_ms:        u64,
+    pub cycle_duration_ms:  u64,
+    pub resources:          Vec<SoundResource>,
+    pub structure:          BSplineParams,
 }
 
 pub fn openScene(file: &String) -> Scene {
