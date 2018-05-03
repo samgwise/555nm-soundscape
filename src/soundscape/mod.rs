@@ -84,6 +84,7 @@ pub fn structure_from_scene(scene: &config::Scene) -> Structure {
 pub enum Cmd {
     Play,
     Load (usize),
+    LoadBackground,
     Retire,
 }
 
@@ -100,6 +101,10 @@ pub fn play_at(tick: u64) -> FutureCmd {
 
 pub fn load_at(scene_index: usize, tick: u64) -> FutureCmd {
     FutureCmd { command: Cmd::Load(scene_index), at_tick: tick }
+}
+
+pub fn load_background() -> FutureCmd {
+    FutureCmd { command: Cmd::LoadBackground, at_tick: 0 }
 }
 
 pub fn retire_at(tick: u64) -> FutureCmd {

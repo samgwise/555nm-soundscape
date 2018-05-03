@@ -52,7 +52,7 @@ fn main() {
             ::std::process::exit(1)
         }
         else if args.len() == 2 {
-            // custom configuration file
+            // custom configuration 
             format!("{}", args[1])
         }
         else {
@@ -85,6 +85,22 @@ fn main() {
         println!("Scene OK", );
     }
 
+    let background_scene = match config.background_scene {
+        Some (scene_file) => {
+            let clone_path = scene_file.as_str().to_string();
+            let scene = openScene(&clone_path);
+            for resource in &scene.resources {
+                File::open(&resource.path)
+                    .expect( &format!("Error opening content for resource '{}' from background scene '{}'", resource.path, scene_file) );
+            }
+            Some (scene)
+        },
+        None => {
+            println!("No background scene specified");
+            None
+        },
+    };
+
     // setup metronome
     let (tx_app_msg, rx_app_msg) = mpsc::channel();
     let tx_metro = mpsc::Sender::clone(&tx_app_msg);
@@ -97,6 +113,7 @@ fn main() {
     // setup command BinaryHeap and queue first play command
     let mut future_commands = BinaryHeap::with_capacity(128);
     future_commands.push(soundscape::load_at(0, 0));
+    future_commands.push(soundscape::load_background());
 
     // Setup socket
     let _listener = thread::spawn(move || {
@@ -127,16 +144,17 @@ fn main() {
 
     let endpoint = rodio::default_endpoint().expect("Error selecting audio output device");
 
+    let mut background_sources: Vec<soundscape::SoundSource> = Vec::new();
     let mut active_sources: Vec<soundscape::SoundSource> = Vec::with_capacity(config.voice_limit);
     let mut retired_sources: Vec<soundscape::SoundSource> = Vec::with_capacity(config.voice_limit);
 
     let mut elapsed_ms = 0u64;
     let mut dynamic_curve = soundscape::structure_from_scene(&openScene(&config.scenes[0]));
     // let volume_curve = config::to_b_spline(&config.structure);
-    //
+    
     // let duration = config.structure_duration_ms as f32;
     // let step_t = volume_curve.knot_domain().1 / duration;
-    // let mut step = 0f32;
+    // let mut step = 0f32
     let step_increment = metro_rate as f32;
     // Run loop
     loop {
@@ -183,6 +201,16 @@ fn main() {
                                             (n + 1) % config.scenes.len(),
                                             elapsed_ms + scene.duration_ms + step_size_ms
                                             ));
+                                },
+                                soundscape::Cmd::LoadBackground => {
+                                    match background_scene {
+                                        Some (ref scene) => {
+                                            add_resources(&mut background_sources, &endpoint, &scene);
+                                            play(&mut background_sources);
+                                            set_volume(&mut background_sources, 0.9);
+                                        },
+                                        None => (),
+                                    }
                                 },
                                 soundscape::Cmd::Retire => {
                                     println!("Executing retire command at step: {}", elapsed_ms);

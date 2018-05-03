@@ -65,6 +65,7 @@ pub struct Soundscape {
     // pub structure_duration_ms:  usize,
     pub voice_limit:            usize,
     pub default_level:          f32,
+    pub background_scene:       Option<String>,
 }
 
 pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {
