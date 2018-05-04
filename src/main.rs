@@ -24,7 +24,7 @@ use std::fs::File;
 use std::thread;
 
 mod config;
-use config::openScene;
+use config::open_scene;
 mod soundscape;
 
 #[derive(Debug, Copy, Clone)]
@@ -77,7 +77,7 @@ fn main() {
     // test scene files
     for scene_file in &config.scenes {
         print!("Checking scene file: '{}'...", scene_file);
-        let scene = openScene(scene_file);
+        let scene = open_scene(scene_file);
         for resource in &scene.resources {
             File::open(&resource.path)
                 .expect( &format!("Error opening content for resource '{}' from scene '{}'", resource.path, scene_file) );
@@ -88,7 +88,7 @@ fn main() {
     let background_scene = match config.background_scene {
         Some (scene_file) => {
             let clone_path = scene_file.as_str().to_string();
-            let scene = openScene(&clone_path);
+            let scene = open_scene(&clone_path);
             for resource in &scene.resources {
                 File::open(&resource.path)
                     .expect( &format!("Error opening content for resource '{}' from background scene '{}'", resource.path, scene_file) );
@@ -149,7 +149,7 @@ fn main() {
     let mut retired_sources: Vec<soundscape::SoundSource> = Vec::with_capacity(config.voice_limit);
 
     let mut elapsed_ms = 0u64;
-    let mut dynamic_curve = soundscape::structure_from_scene(&openScene(&config.scenes[0]));
+    let mut dynamic_curve = soundscape::structure_from_scene(&open_scene(&config.scenes[0]));
     // let volume_curve = config::to_b_spline(&config.structure);
     
     // let duration = config.structure_duration_ms as f32;
@@ -191,7 +191,7 @@ fn main() {
                                 },
                                 soundscape::Cmd::Load (n) => {
                                     println!("Executing load command at step: {}", elapsed_ms);
-                                    let scene = openScene(&config.scenes[n]);
+                                    let scene = open_scene(&config.scenes[n]);
                                     add_resources(&mut active_sources, &endpoint, &scene);
                                     dynamic_curve = soundscape::structure_from_scene(&scene);
 
@@ -231,13 +231,15 @@ fn main() {
                         if c.is_live == false {
                             c.is_live = true;
                             let volume = config.default_level + c.gain;
-                            soundscape::volume_fade(c, volume, 100)
+                            let fade_steps = c.fade_in_steps;
+                            soundscape::volume_fade(c, volume, fade_steps)
                         }
                     }
                     else {
                         if c.is_live == true {
                             c.is_live = false;
-                            soundscape::volume_fade(c, 0.0, 100)
+                            let fade_steps = c.fade_out_steps;
+                            soundscape::volume_fade(c, 0.0, fade_steps)
                         }
                     }
                 }
@@ -337,7 +339,8 @@ fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, endpoint: &r
 fn retire_resources(active_sources: &mut Vec<soundscape::SoundSource>, retired_sources: &mut Vec<soundscape::SoundSource>) {
     retired_sources.append(active_sources);
     for s in retired_sources {
-        soundscape::volume_fade(s, -0.0, 100);
+        let fade_steps = s.fade_out_steps;
+        soundscape::volume_fade(s, -0.0, fade_steps);
     }
 }
 

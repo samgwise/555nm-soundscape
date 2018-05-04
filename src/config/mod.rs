@@ -19,6 +19,8 @@ pub struct SoundResource {
     pub min_threshold:  f32,
     pub max_threshold:  f32,
     pub gain:           f32,
+    pub fade_in_steps:  Option<u32>,
+    pub fade_out_steps: Option<u32>,
     pub reverb:         Option<ReverbParams>,
     pub position:       Option<[f32; 3]>,
 }
@@ -38,7 +40,7 @@ pub struct Scene {
     pub structure:          BSplineParams,
 }
 
-pub fn openScene(file: &String) -> Scene {
+pub fn open_scene(file: &String) -> Scene {
     let mut scene_file = File::open(file)
         .expect( &format!("Error opening file '{}'", file) );
 

@@ -18,6 +18,8 @@ pub struct SoundSource {
     pub volume:         f32,
     pub volume_step:    f32,
     pub volume_updates: u32,
+    pub fade_out_steps: u32,
+    pub fade_in_steps:  u32,
     pub is_live:        bool, // Is the suound within threshhold bounds
 }
 
@@ -25,6 +27,16 @@ pub fn resource_to_sound_source(res: &SoundResource, endpoint: &Endpoint) -> Sou
     let position = match res.position {
         Some (pos)  => pos,
         None        => [0.0, 1.0, 1.0],
+    };
+
+    let fade_in = match res.fade_in_steps {
+        Some (duration)     => duration,
+        None                => 500,
+    };
+
+    let fade_out = match res.fade_out_steps {
+        Some (duration)     => duration,
+        None                => 500,
     };
 
     SoundSource {
@@ -35,6 +47,8 @@ pub fn resource_to_sound_source(res: &SoundResource, endpoint: &Endpoint) -> Sou
         volume:         0f32,
         volume_step:    0.01,
         volume_updates: 0,
+        fade_in_steps:  fade_in,
+        fade_out_steps: fade_out,
         is_live:        false,
     }
 }
