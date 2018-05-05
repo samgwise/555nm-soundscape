@@ -52,7 +52,7 @@ fn main() {
             ::std::process::exit(1)
         }
         else if args.len() == 2 {
-            // custom configuration 
+            // custom configuration
             format!("{}", args[1])
         }
         else {
@@ -142,7 +142,7 @@ fn main() {
 
     // Setup audio
 
-    let endpoint = rodio::default_endpoint().expect("Error selecting audio output device");
+    let output_device = rodio::default_output_device().expect("Error selecting audio output device");
 
     let mut background_sources: Vec<soundscape::SoundSource> = Vec::new();
     let mut active_sources: Vec<soundscape::SoundSource> = Vec::with_capacity(config.voice_limit);
@@ -151,7 +151,7 @@ fn main() {
     let mut elapsed_ms = 0u64;
     let mut dynamic_curve = soundscape::structure_from_scene(&open_scene(&config.scenes[0]));
     // let volume_curve = config::to_b_spline(&config.structure);
-    
+
     // let duration = config.structure_duration_ms as f32;
     // let step_t = volume_curve.knot_domain().1 / duration;
     // let mut step = 0f32
@@ -192,7 +192,7 @@ fn main() {
                                 soundscape::Cmd::Load (n) => {
                                     println!("Executing load command at step: {}", elapsed_ms);
                                     let scene = open_scene(&config.scenes[n]);
-                                    add_resources(&mut active_sources, &endpoint, &scene);
+                                    add_resources(&mut active_sources, &output_device, &scene);
                                     dynamic_curve = soundscape::structure_from_scene(&scene);
 
                                     future_commands.push(soundscape::play_at(elapsed_ms + step_size_ms));
@@ -205,7 +205,7 @@ fn main() {
                                 soundscape::Cmd::LoadBackground => {
                                     match background_scene {
                                         Some (ref scene) => {
-                                            add_resources(&mut background_sources, &endpoint, &scene);
+                                            add_resources(&mut background_sources, &output_device, &scene);
                                             play(&mut background_sources);
                                             set_volume(&mut background_sources, 0.9);
                                         },
@@ -307,11 +307,11 @@ fn route_osc(packet: OscPacket) -> OscEvent {
 // active_sources actions
 
 // Load sound sources from config objects
-fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, endpoint: &rodio::Endpoint, scene: &config::Scene) {
+fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, output_device: &rodio::Device, scene: &config::Scene) {
     println!("Loading {}", scene.name);
     for res in &scene.resources {
         println!("Adding: {:?}", res);
-        let mut sound_source = soundscape::resource_to_sound_source(res, &endpoint);
+        let mut sound_source = soundscape::resource_to_sound_source(res, &output_device);
         let source =
             config::res_to_file(&res.path).and_then(|file| {
                 match rodio::Decoder::new( BufReader::new(file) ) {

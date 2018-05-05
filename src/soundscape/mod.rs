@@ -1,7 +1,7 @@
 
 use rodio;
 use rodio::SpatialSink;
-use rodio::Endpoint;
+use rodio::Device;
 
 use bspline;
 
@@ -23,7 +23,7 @@ pub struct SoundSource {
     pub is_live:        bool, // Is the suound within threshhold bounds
 }
 
-pub fn resource_to_sound_source(res: &SoundResource, endpoint: &Endpoint) -> SoundSource {
+pub fn resource_to_sound_source(res: &SoundResource, output_device: &Device) -> SoundSource {
     let position = match res.position {
         Some (pos)  => pos,
         None        => [0.0, 1.0, 1.0],
@@ -40,7 +40,7 @@ pub fn resource_to_sound_source(res: &SoundResource, endpoint: &Endpoint) -> Sou
     };
 
     SoundSource {
-        channel:        SpatialSink::new(endpoint, position, [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0]),
+        channel:        SpatialSink::new(output_device, position, [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0]),
         min_threshold:  res.min_threshold,
         max_threshold:  res.max_threshold,
         gain:           res.gain,
