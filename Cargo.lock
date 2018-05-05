@@ -3,6 +3,7 @@ name = "555nm-soundscape"
 version = "0.1.0"
 dependencies = [
  "bspline 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cgmath 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rodio 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rosc 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",

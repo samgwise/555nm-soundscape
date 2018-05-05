@@ -1,6 +1,5 @@
 
-use rodio;
-use rodio::SpatialSink;
+use rodiox::diffusion_sink::DiffusionSink;
 use rodio::Device;
 
 use bspline;
@@ -11,7 +10,7 @@ use config::SoundResource;
 use std::cmp::Ordering;
 
 pub struct SoundSource {
-    pub channel:        rodio::SpatialSink,
+    pub channel:        DiffusionSink,
     pub min_threshold:  f32,
     pub max_threshold:  f32,
     pub gain:           f32,
@@ -40,7 +39,7 @@ pub fn resource_to_sound_source(res: &SoundResource, output_device: &Device) -> 
     };
 
     SoundSource {
-        channel:        SpatialSink::new(output_device, position, [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0]),
+        channel:        DiffusionSink::new(output_device, position, vec![[1.0, 1.0, 1.0], [-1.0, 1.0, 1.0]]),
         min_threshold:  res.min_threshold,
         max_threshold:  res.max_threshold,
         gain:           res.gain,

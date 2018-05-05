@@ -5,6 +5,8 @@ extern crate bspline;
 extern crate timer;
 extern crate chrono;
 
+extern crate cgmath;
+
 extern crate rosc;
 use rosc::OscPacket;
 
@@ -26,6 +28,7 @@ use std::thread;
 mod config;
 use config::open_scene;
 mod soundscape;
+mod rodiox;
 
 #[derive(Debug, Copy, Clone)]
 enum OscEvent {

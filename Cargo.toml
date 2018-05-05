@@ -12,3 +12,5 @@ serde_yaml = "0.7"
 bspline = "0.2.2"
 timer = "0.2.0"
 chrono = "0.4.1"
+# Included for rodiox::diffusion
+cgmath = "0.14"
