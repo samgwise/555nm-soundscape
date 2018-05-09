@@ -52,10 +52,10 @@ where
 
             let distance = (speaker_position - emitter_position).magnitude();
 
-            let amplitude = 1.0 / (distance * 2.0);
+            let amplitude = (1.0 / (distance * 2.0)).abs();
 
             if amplitude > 1.0 {
-                println!("Wanring: Amplitude {} is greater than 1.0 for source at {:?} and speaker at {:?}!", amplitude, emitter_position, speaker_pos);
+                println!("Warning: Amplitude {} is greater than 1.0 for source at {:?} and speaker at {:?}!", amplitude, emitter_position, speaker_pos);
             }
 
             self.input.set_volume(channel_count, amplitude);

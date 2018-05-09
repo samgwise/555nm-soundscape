@@ -104,8 +104,6 @@ fn main() {
         },
     };
 
-    let speaker_positions = config.speaker_positions.positions;
-
     // setup metronome
     let (tx_app_msg, rx_app_msg) = mpsc::channel();
     let tx_metro = mpsc::Sender::clone(&tx_app_msg);
@@ -148,6 +146,32 @@ fn main() {
     // Setup audio
 
     let output_device = rodio::default_output_device().expect("Error selecting audio output device");
+
+    println!("Outputing audio to {}", output_device.name());
+    let output_count = match output_device.default_output_format() {
+        Ok (format) => {
+            println!("Using default output format of {:?}", format);
+            format.channels as usize
+        },
+        Err (e) => {
+            println!("Error retriving channel count from audio device: {:?}", e);
+            ::std::process::exit(1);
+        },
+    };
+
+    let mut speaker_positions :Vec<[f32; 3]> = Vec::with_capacity(output_count);
+    for i in 0..output_count {
+        if i < config.speaker_positions.positions.len() {
+            speaker_positions.push(config.speaker_positions.positions[i])
+        }
+        else {
+            println!("No speaker position defined for output {}", i);
+        }
+    }
+
+    if speaker_positions.len() < config.speaker_positions.positions.len() {
+        println!("Ignored speaker psotions for channels greater than {}", output_count);
+    }
 
     let mut background_sources: Vec<soundscape::SoundSource> = Vec::new();
     let mut active_sources: Vec<soundscape::SoundSource> = Vec::with_capacity(config.voice_limit);
@@ -255,9 +279,9 @@ fn main() {
                 }
                 retired_sources.retain(|s| s.volume_updates > 0);
 
-                if elapsed_ms % 1000 == 0 {
-                    println!("v: {}, t: {}, pending commands: {}", volume, t, future_commands.len());
-                }
+                //if elapsed_ms % 1000 == 0 {
+                //    println!("v: {}, t: {}, pending commands: {}", volume, t, future_commands.len());
+                //}
             }
         }
     }

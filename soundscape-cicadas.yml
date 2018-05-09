@@ -1,0 +1,40 @@
+---
+  host: 0.0.0.0
+  port: 30001
+  metro_step_ms: 10
+  structure_duration_ms: 50000
+  voice_limit: 16
+  resources:
+    - path: cicadas-vivid.flac
+      min_threshold: 1
+      max_threshold: 100
+      gain: 0
+
+  # Defines a B-Spline curve as our cyclic structure
+  structure:
+    degree: 4
+    points:
+      - 1
+      - 2
+      - 4
+      - 6
+      - 6
+      - 3
+      - 2
+      - 1
+      - 1
+    knots:
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 5
+      - 5
+      - 5
+      - 5
