@@ -22,7 +22,7 @@ pub struct SoundSource {
     pub is_live:        bool, // Is the suound within threshhold bounds
 }
 
-pub fn resource_to_sound_source(res: &SoundResource, output_device: &Device) -> SoundSource {
+pub fn resource_to_sound_source(res: &SoundResource, output_device: &Device, speakers: &Vec<[f32; 3]>) -> SoundSource {
     let position = match res.position {
         Some (pos)  => pos,
         None        => [0.0, 1.0, 1.0],
@@ -39,7 +39,7 @@ pub fn resource_to_sound_source(res: &SoundResource, output_device: &Device) -> 
     };
 
     SoundSource {
-        channel:        DiffusionSink::new(output_device, position, vec![[1.0, 1.0, 1.0], [-1.0, 1.0, 1.0]]),
+        channel:        DiffusionSink::new(output_device, position, speakers.to_vec()),
         min_threshold:  res.min_threshold,
         max_threshold:  res.max_threshold,
         gain:           res.gain,

@@ -59,6 +59,11 @@ pub struct Address {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct Speakers {
+    pub positions:   Vec<[f32; 3]>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Soundscape {
     pub listen_addr:            Address,
     pub subscribers:            Vec<Address>,
@@ -68,6 +73,7 @@ pub struct Soundscape {
     pub voice_limit:            usize,
     pub default_level:          f32,
     pub background_scene:       Option<String>,
+    pub speaker_positions:      Speakers,
 }
 
 pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {

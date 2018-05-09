@@ -104,6 +104,8 @@ fn main() {
         },
     };
 
+    let speaker_positions = config.speaker_positions.positions;
+
     // setup metronome
     let (tx_app_msg, rx_app_msg) = mpsc::channel();
     let tx_metro = mpsc::Sender::clone(&tx_app_msg);
@@ -195,7 +197,7 @@ fn main() {
                                 soundscape::Cmd::Load (n) => {
                                     println!("Executing load command at step: {}", elapsed_ms);
                                     let scene = open_scene(&config.scenes[n]);
-                                    add_resources(&mut active_sources, &output_device, &scene);
+                                    add_resources(&mut active_sources, &output_device, &scene, &speaker_positions);
                                     dynamic_curve = soundscape::structure_from_scene(&scene);
 
                                     future_commands.push(soundscape::play_at(elapsed_ms + step_size_ms));
@@ -208,7 +210,7 @@ fn main() {
                                 soundscape::Cmd::LoadBackground => {
                                     match background_scene {
                                         Some (ref scene) => {
-                                            add_resources(&mut background_sources, &output_device, &scene);
+                                            add_resources(&mut background_sources, &output_device, &scene, &speaker_positions);
                                             play(&mut background_sources);
                                             set_volume(&mut background_sources, 0.9);
                                         },
@@ -310,11 +312,11 @@ fn route_osc(packet: OscPacket) -> OscEvent {
 // active_sources actions
 
 // Load sound sources from config objects
-fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, output_device: &rodio::Device, scene: &config::Scene) {
+fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, output_device: &rodio::Device, scene: &config::Scene, speakers: &Vec<[f32; 3]>) {
     println!("Loading {}", scene.name);
     for res in &scene.resources {
         println!("Adding: {:?}", res);
-        let mut sound_source = soundscape::resource_to_sound_source(res, &output_device);
+        let mut sound_source = soundscape::resource_to_sound_source(res, &output_device, &speakers);
         let source =
             config::res_to_file(&res.path).and_then(|file| {
                 match rodio::Decoder::new( BufReader::new(file) ) {

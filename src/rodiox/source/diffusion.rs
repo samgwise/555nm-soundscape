@@ -36,6 +36,7 @@ where
         let mut ret = Diffusion {
             input: ChannelVolume::new(input, levels),
         };
+
         ret.set_positions(emitter_position, speakers);
         ret
     }
@@ -52,6 +53,10 @@ where
             let distance = (speaker_position - emitter_position).magnitude();
 
             let amplitude = 1.0 / (distance * 2.0);
+
+            if amplitude > 1.0 {
+                println!("Wanring: Amplitude {} is greater than 1.0 for source at {:?} and speaker at {:?}!", amplitude, emitter_position, speaker_pos);
+            }
 
             self.input.set_volume(channel_count, amplitude);
             channel_count += 1;

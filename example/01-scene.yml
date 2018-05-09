@@ -35,7 +35,7 @@ resources:
     position:
       - 2
       - 1
-      - 1
+      - 0
   - path: example/samples/pad-loop2a.flac
     min_threshold: 2.7
     max_threshold: 4.7
@@ -46,7 +46,7 @@ resources:
     position:
       - -1.5
       - 1
-      - 1
+      - 0
   - path: example/samples/pad-loop2b.flac
     min_threshold: 4.7
     max_threshold: 100
@@ -57,7 +57,7 @@ resources:
     position:
       - -1.5
       - 1
-      - 1
+      - 0
 
   - path: example/samples/panner-loop1.flac
     min_threshold: 5
