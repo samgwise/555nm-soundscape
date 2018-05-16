@@ -160,7 +160,17 @@ fn main() {
     };
 
     let mut speaker_positions :Vec<[f32; 3]> = Vec::with_capacity(output_count);
-    for i in 0..output_count {
+    let ignore_speakers = match config.ignore_extra_speakers {
+        Some (is_ignored)   => is_ignored,
+        None                => true,
+    };
+
+    let positions_limit = match ignore_speakers {
+        true => output_count,
+        false => config.speaker_positions.positions.len(),
+    };
+
+    for i in 0..positions_limit {
         if i < config.speaker_positions.positions.len() {
             speaker_positions.push(config.speaker_positions.positions[i])
         }

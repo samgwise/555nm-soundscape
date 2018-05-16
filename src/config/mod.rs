@@ -74,6 +74,7 @@ pub struct Soundscape {
     pub default_level:          f32,
     pub background_scene:       Option<String>,
     pub speaker_positions:      Speakers,
+    pub ignore_extra_speakers:  Option<bool>,
 }
 
 pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {
