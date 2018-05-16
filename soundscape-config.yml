@@ -9,6 +9,7 @@
   voice_limit: 16
   default_level: 0.9
   ignore_extra_speakers: false
+  is_fallback_slave: true
   speaker_positions:
       positions:
           # ~5.1

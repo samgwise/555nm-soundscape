@@ -68,8 +68,8 @@ fn main() {
     let config = config::load_from_file(&config_file_name).expect("Unable to continue without valid configuration");
     println!("config: {:?}", config);
 
-    // try bulding listening address
-    let address = match SocketAddrV4::from_str( format!("{}:{}", config.listen_addr.host, config.listen_addr.port).as_str() ) {
+    // try bulding listening address (clone values too while we're here)
+    let address = match SocketAddrV4::from_str( format!("{}:{}", config.listen_addr.host.as_str().to_string(), config.listen_addr.port).as_str() ) {
         Ok(addr)    => addr,
         Err(_)      => {
             println!("Unable to use host and port config fields ('{}:{}') as an address!", config.listen_addr.host, config.listen_addr.port);
@@ -80,26 +80,14 @@ fn main() {
     // test scene files
     for scene_file in &config.scenes {
         print!("Checking scene file: '{}'...", scene_file);
-        let scene = open_scene(scene_file);
-        for resource in &scene.resources {
-            File::open(&resource.path)
-                .expect( &format!("Error opening content for resource '{}' from scene '{}'", resource.path, scene_file) );
-        }
+        config::check_scene_file(&scene_file).expect("Found error with scene content");
         println!("Scene OK", );
     }
 
     let background_scene = match config.background_scene {
-        Some (scene_file) => {
-            let clone_path = scene_file.as_str().to_string();
-            let scene = open_scene(&clone_path);
-            for resource in &scene.resources {
-                File::open(&resource.path)
-                    .expect( &format!("Error opening content for resource '{}' from background scene '{}'", resource.path, scene_file) );
-            }
-            Some (scene)
-        },
+        Some (ref scene_file) => Some(config::check_scene_file(scene_file).expect("Error in background scene!")),
         None => {
-            println!("No background scene specified");
+            println!("No background scene defined");
             None
         },
     };
@@ -160,12 +148,8 @@ fn main() {
     };
 
     let mut speaker_positions :Vec<[f32; 3]> = Vec::with_capacity(output_count);
-    let ignore_speakers = match config.ignore_extra_speakers {
-        Some (is_ignored)   => is_ignored,
-        None                => true,
-    };
 
-    let positions_limit = match ignore_speakers {
+    let positions_limit = match config::ignore_extra_speakers(&config) {
         true => output_count,
         false => config.speaker_positions.positions.len(),
     };
@@ -189,12 +173,11 @@ fn main() {
 
     let mut elapsed_ms = 0u64;
     let mut dynamic_curve = soundscape::structure_from_scene(&open_scene(&config.scenes[0]));
-    // let volume_curve = config::to_b_spline(&config.structure);
-
-    // let duration = config.structure_duration_ms as f32;
-    // let step_t = volume_curve.knot_domain().1 / duration;
-    // let mut step = 0f32
     let step_increment = metro_rate as f32;
+    let mut master_activity_timer = match config::is_fallback_slave(&config) {
+        true => 1000,
+        false => 0,
+    };
     // Run loop
     loop {
         let message = match rx_app_msg.recv() {
@@ -208,6 +191,7 @@ fn main() {
             AppMsg::Error => (),
             AppMsg::Osc (action) => {
                 match action {
+                    // add master alive message handling here
                     _ => println!("No action defined for {:?}", action),
                 }
             }
@@ -261,27 +245,15 @@ fn main() {
                     }
                 }
 
+                // Update slave fallover duration
+                if master_activity_timer > 0 {
+                    master_activity_timer -= metro_rate;
+                }
+
                 let t = dynamic_curve.step_t * dynamic_curve.step;
                 let volume = dynamic_curve.spline.point( t );
-                for c in &mut active_sources {
-                    soundscape::update(c); // execute volume fade steps
-
-                    if c.max_threshold > volume && c.min_threshold < volume {
-                        if c.is_live == false {
-                            c.is_live = true;
-                            let volume = config.default_level + c.gain;
-                            let fade_steps = c.fade_in_steps;
-                            soundscape::volume_fade(c, volume, fade_steps)
-                        }
-                    }
-                    else {
-                        if c.is_live == true {
-                            c.is_live = false;
-                            let fade_steps = c.fade_out_steps;
-                            soundscape::volume_fade(c, 0.0, fade_steps)
-                        }
-                    }
-                }
+                manage_source_activity(&mut active_sources, volume, config.default_level, master_activity_timer);
+manage_source_activity(&mut background_sources, volume, config.default_level, master_activity_timer);
 
                 // run fades and remove any retired sources which have finished their fade out.
                 for s in &mut retired_sources {
@@ -344,6 +316,27 @@ fn route_osc(packet: OscPacket) -> OscEvent {
 }
 
 // active_sources actions
+fn manage_source_activity(sources: &mut Vec<soundscape::SoundSource>, volume :f32, default_level :f32, master_activity_timer :i64) {
+    for c in sources {
+        soundscape::update(c); // execute volume fade steps
+
+        if master_activity_timer < 1 && c.max_threshold > volume && c.min_threshold < volume {
+            if c.is_live == false {
+                c.is_live = true;
+                let volume = default_level + c.gain;
+                let fade_steps = c.fade_in_steps;
+                soundscape::volume_fade(c, volume, fade_steps)
+            }
+        }
+        else {
+            if c.is_live == true {
+                c.is_live = false;
+                let fade_steps = c.fade_out_steps;
+                soundscape::volume_fade(c, 0.0, fade_steps)
+            }
+        }
+    }
+}
 
 // Load sound sources from config objects
 fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, output_device: &rodio::Device, scene: &config::Scene, speakers: &Vec<[f32; 3]>) {

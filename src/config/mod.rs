@@ -52,6 +52,15 @@ pub fn open_scene(file: &String) -> Scene {
         .expect( &format!("Error parsing scene file '{}'", file) )
 }
 
+pub fn check_scene_file(scene_file :&String) -> Result<Scene, &'static str> {
+    let scene = open_scene(&scene_file);
+    for resource in &scene.resources {
+        File::open(&resource.path)
+            .expect( &format!("Error opening content for resource '{}' from background scene '{}'", resource.path, scene_file) );
+    }
+    Ok(scene)
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Address {
     pub host:   String,
@@ -75,6 +84,7 @@ pub struct Soundscape {
     pub background_scene:       Option<String>,
     pub speaker_positions:      Speakers,
     pub ignore_extra_speakers:  Option<bool>,
+    pub is_fallback_slave:      Option<bool>,
 }
 
 pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {
@@ -105,5 +115,19 @@ pub fn res_to_file(resource: &String) -> Result<File, String> {
     match File::open(resource) {
         Ok (file) => Ok(file),
         Err (e) => return Err( format!("Error opening audio file '{}': {}", resource, e) ),
+    }
+}
+
+pub fn is_fallback_slave(config :&Soundscape) -> bool {
+    match config.is_fallback_slave {
+        Some (is_slave) => is_slave,
+        None            => false,
+    }
+}
+
+pub fn ignore_extra_speakers(config :&Soundscape) -> bool {
+    match config.ignore_extra_speakers {
+        Some (is_ignored)   => is_ignored,
+        None                => false,
     }
 }
