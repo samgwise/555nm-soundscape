@@ -1,9 +1,12 @@
 use std::fs::File;
 use std::io::prelude::*;
+use chrono::prelude::*;
+use chrono::Duration;
 
 use serde_yaml;
 use bspline;
 
+mod config_tests;
 // Configuration structs
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -73,6 +76,12 @@ pub struct Speakers {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct DailySchedule {
+    pub start:  String,
+    pub end:    String,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Soundscape {
     pub listen_addr:            Address,
     pub subscribers:            Vec<Address>,
@@ -85,6 +94,7 @@ pub struct Soundscape {
     pub speaker_positions:      Speakers,
     pub ignore_extra_speakers:  Option<bool>,
     pub is_fallback_slave:      Option<bool>,
+    pub daily_schedule:         Option<DailySchedule>,
 }
 
 pub fn load_from_file(file_name: &String) -> Result<Soundscape, String> {
@@ -130,4 +140,51 @@ pub fn ignore_extra_speakers(config :&Soundscape) -> bool {
         Some (is_ignored)   => is_ignored,
         None                => false,
     }
+}
+
+pub fn next_start_time(config :&Soundscape) -> Option<DateTime<Local>> {
+    match config.daily_schedule {
+        Some (ref schedule) => {
+            let start_time =
+                NaiveTime::parse_from_str(schedule.start.as_str(), "%H:%M:%S")
+                    .expect("Unable to use provided time.");
+            let now = Local::now();
+            now.checked_add_signed(
+                Duration::milliseconds(
+                    forward_duration_ms(&now.time(), &start_time)
+                )
+            )
+        },
+        None => None,
+    }
+}
+
+// Returns the time until end of provided schedule, returns now if no schedule is defined in config
+pub fn finish_time(config: &Soundscape, start_time: &DateTime<Local>) -> Option<DateTime<Local>> {
+    match config.daily_schedule {
+        Some ( ref schedule) => {
+            let end_time =
+                NaiveTime::parse_from_str(schedule.end.as_str(), "%H:%M:%S")
+                    .expect("Unable to use provided time.");
+            start_time.checked_add_signed(
+                Duration::milliseconds(
+                    forward_duration_ms(&start_time.time(), &end_time)
+                )
+            )
+        },
+        None => None
+    }
+}
+
+// convert two NaiveTime objects into a forward counting millisecond value
+// accurate to seconds
+pub fn forward_duration_ms(start: &NaiveTime, end: &NaiveTime) -> i64 {
+    let hours = match start < end {
+        true => end.hour() - start.hour(),
+        false => (end.hour() + 24) - start.hour(),
+    };
+
+    let minutes = (end.minute() - start.minute()) % 60;
+    let seconds = (end.second() - start.second()) % 60;
+    (((((hours * 60) + minutes) * 60) + seconds) * 10000) as i64
 }
