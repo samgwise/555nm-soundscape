@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use chrono::prelude::*;
 use chrono::Duration;
+use ::epochsy;
 
 use serde_yaml;
 use bspline;
@@ -142,33 +143,50 @@ pub fn ignore_extra_speakers(config :&Soundscape) -> bool {
     }
 }
 
-pub fn next_start_time(config :&Soundscape) -> Option<DateTime<Local>> {
+// convert a NaiveTime to the next epoch seconds occourence
+pub fn next_epoch(clock_time :&epochsy::DateTime, from :&epochsy::DateTime) -> epochsy::DateTime {
+    let cur_days = epochsy::floor_to_days(from);
+    let from_clock_time = epochsy::sub(from, &cur_days);
+    // force later to time to be later than from
+    let to = match from_clock_time.moment <= clock_time.moment {
+        true => epochsy::sum(&cur_days, clock_time),
+        false => epochsy::sum(&epochsy::days_later(&cur_days, 1), clock_time)
+    };
+    // Add on the difference between from and to the from DateTime
+    epochsy::add(
+        from,
+        &epochsy::diff(
+            from,
+            &to
+        )
+    )
+}
+
+// returns the next epoch in seconds when we should start
+pub fn next_start_time(config: &Soundscape, from: &epochsy::DateTime) -> epochsy::DateTime {
     match config.daily_schedule {
         Some (ref schedule) => {
-            let start_time =
-                NaiveTime::parse_from_str(schedule.start.as_str(), "%H:%M:%S")
-                    .expect("Unable to use provided time.");
-            let now = Local::now();
-            now.checked_add_signed(
-                Duration::milliseconds(
-                    forward_duration_ms(&now.time(), &start_time)
-                )
+            let time = NaiveTime::parse_from_str(schedule.start.as_str(), "%H:%M:%S")
+                .expect("Unable to use provided time.");
+            next_epoch(
+                &epochsy::hms(time.hour() as u64, time.minute() as u64, time.second() as u64)
+                , from
             )
         },
-        None => None,
+        None => epochsy::hms(0, 0, 0),
     }
 }
 
-// Returns the time until end of provided schedule, returns now if no schedule is defined in config
-pub fn finish_time(config: &Soundscape, start_time: &DateTime<Local>) -> Option<DateTime<Local>> {
+// Returns the next end time of the provided schedule, returns None if no schedule is defined in config
+pub fn next_end_time(config: &Soundscape, from: &epochsy::DateTime) -> Option<epochsy::DateTime> {
     match config.daily_schedule {
         Some ( ref schedule) => {
-            let end_time =
-                NaiveTime::parse_from_str(schedule.end.as_str(), "%H:%M:%S")
-                    .expect("Unable to use provided time.");
-            start_time.checked_add_signed(
-                Duration::milliseconds(
-                    forward_duration_ms(&start_time.time(), &end_time)
+            let time = NaiveTime::parse_from_str(schedule.end.as_str(), "%H:%M:%S")
+                .expect("Unable to use provided time.");
+            Some (
+                next_epoch(
+                    &epochsy::hms(time.hour() as u64, time.minute() as u64, time.second() as u64)
+                    , from
                 )
             )
         },
@@ -176,15 +194,40 @@ pub fn finish_time(config: &Soundscape, start_time: &DateTime<Local>) -> Option<
     }
 }
 
-// convert two NaiveTime objects into a forward counting millisecond value
-// accurate to seconds
-pub fn forward_duration_ms(start: &NaiveTime, end: &NaiveTime) -> i64 {
-    let hours = match start < end {
-        true => end.hour() - start.hour(),
-        false => (end.hour() + 24) - start.hour(),
-    };
+// // convert two NaiveTime objects into a forward counting millisecond value
+// // accurate to seconds
+// pub fn forward_duration_ms(start: &NaiveTime, end: &NaiveTime) -> i64 {
+//     forward_duration_sec(start, end) * 1000
+// }
+//
+// // convert two NaiveTime objects into a forward counting seconds value
+// // accurate to seconds
+// pub fn forward_duration_sec(start: &epochsy::DateTime, end: &NaiveTime) -> epochsy::Interval {
+//     epochsy::diff(start,
+//         &epochsy::hours_later(
+//             &epochsy::minutes_later(
+//                 &epochsy::seconds_later(
+//                     start,
+//                     end
+//                 )
+//             )
+//         )
+//     )
+// }
 
-    let minutes = (end.minute() - start.minute()) % 60;
-    let seconds = (end.second() - start.second()) % 60;
-    (((((hours * 60) + minutes) * 60) + seconds) * 10000) as i64
+pub fn is_in_schedule(now :&epochsy::DateTime, start: &epochsy::DateTime, end :&epochsy::DateTime) -> bool {
+    if start.moment <= now.moment && now.moment <= end.moment {
+        true
+    }
+    else {
+        false
+    }
+}
+
+pub fn now() -> DateTime<Local> {
+    Local::now()
+}
+
+pub fn from_timestamp(instant: i64) -> DateTime<Local> {
+    Local.timestamp(instant, 0)
 }

@@ -26,6 +26,7 @@ use std::fs::File;
 use std::thread;
 
 mod config;
+mod epochsy;
 use config::open_scene;
 mod soundscape;
 mod rodiox;

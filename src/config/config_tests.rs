@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod config_test {
     use config::*;
+    use ::epochsy;
 
     fn test_config() -> Soundscape {
         Soundscape {
@@ -26,11 +27,49 @@ mod config_test {
     #[test]
     fn schedules() {
         let config = test_config();
-        let start_time = next_start_time(&config);
-        assert_ne!(start_time, None);
-        let end_time = finish_time(&config, &start_time.unwrap());
+        println!("now: {:?}", &epochsy::now());
+        println!("11:45:26 <=> {:?}", &epochsy::hms(11, 45, 26));
+        println!("midnight today <=> {:?}", &epochsy::floor_to_days(&epochsy::now()));
+
+
+        let start = next_start_time(&config, &epochsy::now());
+        assert!(start.moment > 0);
+
+        // assert_eq!(from_timestamp(start).timestamp(), start);
+        // let test_now = now();
+        // assert_eq!(from_timestamp(test_now.timestamp()).timestamp(), test_now.timestamp());
+        // println!("{:?} <=> {:?}", test_now, test_now.timestamp());
+
+        let end_time = next_end_time(&config, &start);
         assert_ne!(end_time, None);
-        print!("working with start: {:?} and end: {:?}", start_time, end_time );
-        assert!(start_time.unwrap() < end_time.unwrap());
+        let end = end_time.unwrap();
+
+        println!("working with start: {:?} and end: {:?}", start, end );
+        println!("total interval in seconds: {:?}", epochsy::diff(&end, &start));
+
+        // characteristic features
+        assert!(start.moment < end.moment);
+        // assert expected duration
+        assert_eq!(end.moment - start.moment, 23400);
+
+        // assert_eq!(start_local.hour(), 18);
+        // assert_eq!(start_local.minute(), 30);
+        // assert_eq!(start_local.second(), 0);
+        //
+        // assert_eq!(end_local.hour(), 1);
+        // assert_eq!(end_local.minute(), 0);
+        // assert_eq!(end_local.second(), 0);
+
+
+        println!("is_in_schedule now? {:?}", is_in_schedule(&epochsy::now(), &start, &end));
+        assert!(is_in_schedule(&start, &start, &end));
+        assert!(is_in_schedule(&end, &start, &end));
+        // assert!(
+        //     !is_in_schedule(
+        //         &end.checked_add_signed(Duration::milliseconds(1000)).unwrap()
+        //         , &start
+        //         , &end
+        //     )
+        // );
     }
 }
