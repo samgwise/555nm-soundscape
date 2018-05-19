@@ -3,6 +3,7 @@ use std::io::prelude::*;
 use chrono::prelude::*;
 use chrono::Duration;
 use ::epochsy;
+use ::epochsy::{moment, hours, minutes};
 
 use serde_yaml;
 use bspline;
@@ -144,16 +145,49 @@ pub fn ignore_extra_speakers(config :&Soundscape) -> bool {
 }
 
 // convert a NaiveTime to the next epoch seconds occourence
-pub fn next_epoch(clock_time :&epochsy::DateTime, from :&epochsy::DateTime) -> epochsy::DateTime {
+pub fn next_epoch(from :&epochsy::DateTime, clock_time :&epochsy::DateTime) -> epochsy::DateTime {
     let cur_days = epochsy::floor_to_days(from);
-    let from_clock_time = epochsy::sub(from, &cur_days);
+    // let from_clock_time = epochsy::reduce(from, &cur_days);
+    let from_clock_time = epochsy::hms(
+            epochsy::hours(from) % 24,
+            epochsy::minutes(from) % 60,
+            from.moment % 60
+        );
     // force later to time to be later than from
     let to = match from_clock_time.moment <= clock_time.moment {
-        true => epochsy::sum(&cur_days, clock_time),
-        false => epochsy::sum(&epochsy::days_later(&cur_days, 1), clock_time)
+        true => epochsy::append(&cur_days, clock_time),
+        false => epochsy::append(&epochsy::days_later(&cur_days, 1), clock_time)
     };
     // Add on the difference between from and to the from DateTime
     epochsy::add(
+        from,
+        &epochsy::diff(
+            from,
+            &to
+        )
+    )
+}
+
+pub fn next_date_from_time(from: &epochsy::DateTime, clock_time: &epochsy::DateTime) -> epochsy::DateTime {
+    let dt = epochsy::hms(
+        (hours(clock_time) + (hours(from) % 24) % 24),
+        (minutes(clock_time) + (minutes(from) % 60) % 60),
+        (moment(clock_time) + (moment(from) % 60) % 60),
+        );
+    println!("delta time: {:?} ({})", dt, moment(&dt));
+    epochsy::append(from, &dt)
+}
+
+pub fn previous_epoch(from: &epochsy::DateTime, clock_time: &epochsy::DateTime) -> epochsy::DateTime {
+    let cur_days = epochsy::floor_to_days(from);
+    let from_clock_time = epochsy::reduce(from, &cur_days);
+    // force later to time to be later than from
+    let to = match moment(&clock_time) <= moment(&from_clock_time) {
+        true => epochsy::append(&cur_days, clock_time),
+        false => epochsy::append(&epochsy::days_before(&cur_days, 1), clock_time)
+    };
+    // Add on the difference between from and to the from DateTime
+    epochsy::sub(
         from,
         &epochsy::diff(
             from,
@@ -169,8 +203,8 @@ pub fn next_start_time(config: &Soundscape, from: &epochsy::DateTime) -> epochsy
             let time = NaiveTime::parse_from_str(schedule.start.as_str(), "%H:%M:%S")
                 .expect("Unable to use provided time.");
             next_epoch(
+                from,
                 &epochsy::hms(time.hour() as u64, time.minute() as u64, time.second() as u64)
-                , from
             )
         },
         None => epochsy::hms(0, 0, 0),
@@ -185,8 +219,8 @@ pub fn next_end_time(config: &Soundscape, from: &epochsy::DateTime) -> Option<ep
                 .expect("Unable to use provided time.");
             Some (
                 next_epoch(
+                    from,
                     &epochsy::hms(time.hour() as u64, time.minute() as u64, time.second() as u64)
-                    , from
                 )
             )
         },
@@ -194,29 +228,8 @@ pub fn next_end_time(config: &Soundscape, from: &epochsy::DateTime) -> Option<ep
     }
 }
 
-// // convert two NaiveTime objects into a forward counting millisecond value
-// // accurate to seconds
-// pub fn forward_duration_ms(start: &NaiveTime, end: &NaiveTime) -> i64 {
-//     forward_duration_sec(start, end) * 1000
-// }
-//
-// // convert two NaiveTime objects into a forward counting seconds value
-// // accurate to seconds
-// pub fn forward_duration_sec(start: &epochsy::DateTime, end: &NaiveTime) -> epochsy::Interval {
-//     epochsy::diff(start,
-//         &epochsy::hours_later(
-//             &epochsy::minutes_later(
-//                 &epochsy::seconds_later(
-//                     start,
-//                     end
-//                 )
-//             )
-//         )
-//     )
-// }
-
 pub fn is_in_schedule(now :&epochsy::DateTime, start: &epochsy::DateTime, end :&epochsy::DateTime) -> bool {
-    if start.moment <= now.moment && now.moment <= end.moment {
+    if moment(start) <= moment(now) && moment(now) <= moment(end) {
         true
     }
     else {
@@ -224,10 +237,53 @@ pub fn is_in_schedule(now :&epochsy::DateTime, start: &epochsy::DateTime, end :&
     }
 }
 
-pub fn now() -> DateTime<Local> {
-    Local::now()
+// Checks to see if we are in a scheduled duration now.
+// Returns true always if no schedule is defined
+pub fn is_in_schedule_now(config: &Soundscape, now: &epochsy::DateTime) -> bool {
+    // let now = epochsy::now();
+    let start = next_start_time(config, &epochsy::floor_to_days(now));
+    assert!(moment(&start) > moment(now));
+    let end = next_end_time(config, &start).unwrap();
+    assert!(moment(&start) < moment(&end));
+    if moment(now) >= moment(&start) && moment(now) <= moment(&end) {
+        true
+    }
+    else {
+        false
+    }
+    // match next_end_time(config, now) {
+    //    Some (end) => {
+    //        println!("now, start, end : {}, {}, {}", moment(now), moment(&start), moment(&end));
+    //        assert!(moment(&start) >= moment(now));
+    //        assert!(moment(&end) >= moment(now));
+    //        moment(&start) >= moment(&end)
+    //    },
+    //    None => true // there is no schedule so everytime is scheduled time
+    // }
 }
 
-pub fn from_timestamp(instant: i64) -> DateTime<Local> {
-    Local.timestamp(instant, 0)
+pub fn local_time_zone() -> i32 {
+    Local::now().offset().fix().local_minus_utc() as i32
+}
+
+pub fn to_localtime(utc: &epochsy::DateTime) -> epochsy::DateTime {
+    // let utc = epochsy::now();
+    let tz = local_time_zone();
+    epochsy::with_timezone(utc, tz)
+}
+
+pub fn localtime() -> epochsy::DateTime {
+    to_localtime(&epochsy::seconds_later(&epochsy::now(), local_time_zone() as u64))
+}
+
+pub fn from_localtime(local: &epochsy::DateTime) -> epochsy::DateTime {
+    epochsy::with_timezone(local, 0)
+}
+
+pub fn from_timestamp(instant: i64) -> DateTime<Utc> {
+    Utc.timestamp(instant, 0)
+}
+
+pub fn local_today() -> epochsy::DateTime {
+    to_localtime(&epochsy::floor_to_days(&epochsy::now()))
 }

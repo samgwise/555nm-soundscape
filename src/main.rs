@@ -21,8 +21,6 @@ use std::str::FromStr;
 use std::sync::mpsc;
 
 use std::collections::BinaryHeap;
-use std::fs::File;
-// use std::io::prelude::*;
 use std::thread;
 
 mod config;

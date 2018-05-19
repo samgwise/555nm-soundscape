@@ -20,19 +20,30 @@ mod config_test {
     }
 
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn intervals() {
+        let config = test_config();
+        let today = local_today();
+        println!("today {} ({:?})", from_timestamp(moment(&today) as i64), today);
+        let start = next_start_time(&config, &today);
+        println!("start {} ({:?})", from_timestamp(moment(&start) as i64), start);
+        let end = next_end_time(&config, &start).unwrap();
+        println!("end {} ({:?})", from_timestamp(moment(&end) as i64), end);
+        println!("now {} ({:?})", from_timestamp(moment(&localtime()) as i64), localtime());
+        println!("Is now in schedule? {}", is_in_schedule(&localtime(), &start, &end));
+        assert!(false);
     }
 
     #[test]
     fn schedules() {
         let config = test_config();
         println!("now: {:?}", &epochsy::now());
+        println!("localtime: {:?}", localtime());
         println!("11:45:26 <=> {:?}", &epochsy::hms(11, 45, 26));
-        println!("midnight today <=> {:?}", &epochsy::floor_to_days(&epochsy::now()));
+        println!("midnight today <=> {:?}", epochsy::moment(&to_localtime(&epochsy::floor_to_days(&epochsy::now()))));
 
+        println!("is_in_schedule_now currently? {:?}", is_in_schedule_now(&config, &localtime()));
 
-        let start = next_start_time(&config, &epochsy::now());
+        let start = next_start_time(&config, &localtime());
         assert!(start.moment > 0);
 
         // assert_eq!(from_timestamp(start).timestamp(), start);
@@ -40,17 +51,21 @@ mod config_test {
         // assert_eq!(from_timestamp(test_now.timestamp()).timestamp(), test_now.timestamp());
         // println!("{:?} <=> {:?}", test_now, test_now.timestamp());
 
-        let end_time = next_end_time(&config, &start);
+        let end_time_from_start = next_end_time(&config, &start);
+        assert_ne!(end_time_from_start, None);
+        let end_from_start = end_time_from_start.unwrap();
+        let end_time = next_end_time(&config, &localtime());
         assert_ne!(end_time, None);
         let end = end_time.unwrap();
 
+        // assert_eq!(to_localtime(&from_localtime(&start)).moment, start.moment);
         println!("working with start: {:?} and end: {:?}", start, end );
         println!("total interval in seconds: {:?}", epochsy::diff(&end, &start));
 
         // characteristic features
-        assert!(start.moment < end.moment);
+        assert!(moment(&start) < moment(&end_from_start));
         // assert expected duration
-        assert_eq!(end.moment - start.moment, 23400);
+        assert_eq!(moment(&end_from_start) - moment(&start), 23400);
 
         // assert_eq!(start_local.hour(), 18);
         // assert_eq!(start_local.minute(), 30);
@@ -61,9 +76,36 @@ mod config_test {
         // assert_eq!(end_local.second(), 0);
 
 
-        println!("is_in_schedule now? {:?}", is_in_schedule(&epochsy::now(), &start, &end));
-        assert!(is_in_schedule(&start, &start, &end));
-        assert!(is_in_schedule(&end, &start, &end));
+        println!("is_in_schedule currently? {:?} ({:?} to {:?})", is_in_schedule(&localtime(), &start, &end), start, end);
+        assert!(is_in_schedule(&start, &start, &end_from_start));
+        assert!(is_in_schedule(&end_from_start, &start, &end_from_start));
+
+        let before = epochsy::append(&epochsy::hms(15, 39, 0), &to_localtime(&epochsy::today()));
+        println!("Before => {:?}", before);
+        assert!(before.moment < next_start_time(&config, &before).moment);
+        assert!(next_start_time(&config, &before).moment < end_from_start.moment);
+
+        let after = epochsy::append(&end_from_start, &epochsy::hms(0, 1, 0));
+        println!("After => {:?}", after);
+        let during = epochsy::append(&start, &epochsy::hms(1, 0, 0));
+        println!("During => {:?}", during);
+
+        assert!(!is_in_schedule(&before, &start, &end));
+        assert!(!is_in_schedule(&after, &start, &end));
+
+        assert!(is_in_schedule_now(&config, &end));
+        assert!(is_in_schedule_now(&config, &start));
+        assert!(is_in_schedule_now(&config, &during));
+        assert!(!is_in_schedule_now(&config, &before));
+        assert!(!is_in_schedule_now(&config, &after));
+
+        // if start > end and now < end {
+        //      Play
+        // }
+        //  else {
+        //      Pause
+        //  }
+
         // assert!(
         //     !is_in_schedule(
         //         &end.checked_add_signed(Duration::milliseconds(1000)).unwrap()
