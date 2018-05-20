@@ -63,7 +63,7 @@ pub fn seconds_later(m :&DateTime, seconds: u64) -> DateTime {
 }
 
 pub fn minutes_later(m :&DateTime, minutes: u64) -> DateTime {
-    DateTime { moment: m.moment + (minutes * 60), tz:m .tz }
+    DateTime { moment: m.moment + (minutes * 60), tz: m.tz }
 }
 
 pub fn hours_later(m :&DateTime, hours: u64) -> DateTime {

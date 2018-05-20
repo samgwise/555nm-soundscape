@@ -173,10 +173,16 @@ fn main() {
     let mut elapsed_ms = 0u64;
     let mut dynamic_curve = soundscape::structure_from_scene(&open_scene(&config.scenes[0]));
     let step_increment = metro_rate as f32;
+
+    // Schedule state
+    let mut is_schedule_live = true;
+    future_commands.push(soundscape::check_shedule(0));
+    // Master/slave redudancy timer
     let mut master_activity_timer = match config::is_fallback_slave(&config) {
         true => 1000,
         false => 0,
     };
+
     // Run loop
     loop {
         let message = match rx_app_msg.recv() {
@@ -238,6 +244,32 @@ fn main() {
                                     println!("Executing retire command at step: {}", elapsed_ms);
                                     retire_resources(&mut active_sources, &mut retired_sources);
                                 }
+                                soundscape::Cmd::CheckSchedule => {
+                                    let today = config::local_today();
+                                    let start = config::next_start_time(&config, &today);
+                                    let maybe_end = config::next_end_time(&config, &start);
+                                    match maybe_end {
+                                        // If none there is no schedule, so force on and do not
+                                        // requeue our schedule check
+                                        None => {
+                                            is_schedule_live = true;
+                                            println!("No schedule defined, no more schedule checks will be run.");
+                                        },
+                                        Some (end) => {
+                                            match config::is_in_schedule(&config::local_today(), &start, &end) {
+                                                true => if !is_schedule_live {
+                                                    is_schedule_live = true;
+                                                    println!("Soundscape going live according to schedule.");
+                                                },
+                                                false => if is_schedule_live {
+                                                    is_schedule_live = false;
+                                                    println!("Soundscape is going to sleep according to schedule");
+                                                }
+                                            }
+                                            future_commands.push(soundscape::check_shedule(elapsed_ms + 1000));
+                                        }
+                                    }
+                                }
                             }
                         },
                         None => println!("Expected to unpack command but no command was present. Unexpected state relating to future commands. Continuing execution."),
@@ -251,8 +283,8 @@ fn main() {
 
                 let t = dynamic_curve.step_t * dynamic_curve.step;
                 let volume = dynamic_curve.spline.point( t );
-                manage_source_activity(&mut active_sources, volume, config.default_level, master_activity_timer);
-manage_source_activity(&mut background_sources, volume, config.default_level, master_activity_timer);
+                manage_source_activity(&mut active_sources, volume, config.default_level, master_activity_timer, is_schedule_live);
+manage_source_activity(&mut background_sources, volume, config.default_level, master_activity_timer, is_schedule_live);
 
                 // run fades and remove any retired sources which have finished their fade out.
                 for s in &mut retired_sources {
@@ -315,11 +347,11 @@ fn route_osc(packet: OscPacket) -> OscEvent {
 }
 
 // active_sources actions
-fn manage_source_activity(sources: &mut Vec<soundscape::SoundSource>, volume :f32, default_level :f32, master_activity_timer :i64) {
+fn manage_source_activity(sources: &mut Vec<soundscape::SoundSource>, volume :f32, default_level :f32, master_activity_timer :i64, is_schedule_live: bool) {
     for c in sources {
         soundscape::update(c); // execute volume fade steps
 
-        if master_activity_timer < 1 && c.max_threshold > volume && c.min_threshold < volume {
+        if master_activity_timer < 1 && is_schedule_live && c.max_threshold > volume && c.min_threshold < volume {
             if c.is_live == false {
                 c.is_live = true;
                 let volume = default_level + c.gain;

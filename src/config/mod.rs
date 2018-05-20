@@ -168,34 +168,6 @@ pub fn next_epoch(from :&epochsy::DateTime, clock_time :&epochsy::DateTime) -> e
     )
 }
 
-pub fn next_date_from_time(from: &epochsy::DateTime, clock_time: &epochsy::DateTime) -> epochsy::DateTime {
-    let dt = epochsy::hms(
-        (hours(clock_time) + (hours(from) % 24) % 24),
-        (minutes(clock_time) + (minutes(from) % 60) % 60),
-        (moment(clock_time) + (moment(from) % 60) % 60),
-        );
-    println!("delta time: {:?} ({})", dt, moment(&dt));
-    epochsy::append(from, &dt)
-}
-
-pub fn previous_epoch(from: &epochsy::DateTime, clock_time: &epochsy::DateTime) -> epochsy::DateTime {
-    let cur_days = epochsy::floor_to_days(from);
-    let from_clock_time = epochsy::reduce(from, &cur_days);
-    // force later to time to be later than from
-    let to = match moment(&clock_time) <= moment(&from_clock_time) {
-        true => epochsy::append(&cur_days, clock_time),
-        false => epochsy::append(&epochsy::days_before(&cur_days, 1), clock_time)
-    };
-    // Add on the difference between from and to the from DateTime
-    epochsy::sub(
-        from,
-        &epochsy::diff(
-            from,
-            &to
-        )
-    )
-}
-
 // returns the next epoch in seconds when we should start
 pub fn next_start_time(config: &Soundscape, from: &epochsy::DateTime) -> epochsy::DateTime {
     match config.daily_schedule {
@@ -242,9 +214,9 @@ pub fn is_in_schedule(now :&epochsy::DateTime, start: &epochsy::DateTime, end :&
 pub fn is_in_schedule_now(config: &Soundscape, now: &epochsy::DateTime) -> bool {
     // let now = epochsy::now();
     let start = next_start_time(config, &epochsy::floor_to_days(now));
-    assert!(moment(&start) > moment(now));
+    // assert!(moment(&start) >= moment(now));
     let end = next_end_time(config, &start).unwrap();
-    assert!(moment(&start) < moment(&end));
+    // assert!(moment(&start) <= moment(&end));
     if moment(now) >= moment(&start) && moment(now) <= moment(&end) {
         true
     }

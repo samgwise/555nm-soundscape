@@ -98,6 +98,7 @@ pub enum Cmd {
     Play,
     Load (usize),
     LoadBackground,
+    CheckSchedule,
     Retire,
 }
 
@@ -122,6 +123,10 @@ pub fn load_background() -> FutureCmd {
 
 pub fn retire_at(tick: u64) -> FutureCmd {
     FutureCmd { command: Cmd::Retire, at_tick: tick }
+}
+
+pub fn check_shedule(tick: u64) -> FutureCmd {
+    FutureCmd { command: Cmd::CheckSchedule, at_tick: tick }
 }
 
 // Explicitly implement the trait so the queue becomes a min-heap instead of a max-heap.
