@@ -383,12 +383,13 @@ fn add_resources(active_sources: &mut Vec<soundscape::SoundSource>, output_devic
                 }
             })
             .expect("Error reading audio resource")
+            .fade_in(Duration::from_millis(50))
             .buffered()
             .repeat_infinite();
 
         // pause until a play command is executed
-        sound_source.channel.pause();
         sound_source.channel.set_volume(0.0);
+        sound_source.channel.pause();
 
         match res.reverb {
             Some (ref params) => sound_source.channel.append(source.reverb(Duration::from_millis(params.delay_ms), params.mix_t)),
