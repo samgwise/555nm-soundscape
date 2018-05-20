@@ -8,7 +8,7 @@ pub struct DateTime {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Interval {
-    pub distance: u64,
+    pub distance: i64,
 }
 
 // Returns 0 on error, yeah trys to make std::time a bit easier. You've been warned...
@@ -42,20 +42,20 @@ pub fn append(m1 :&DateTime, m2: &DateTime) -> DateTime {
 }
 
 pub fn diff(m1 :&DateTime, m2: &DateTime) -> Interval {
-    Interval { distance: m2.moment - m1.moment }
+    Interval { distance: (m2.moment as i64) - (m1.moment as i64) }
 }
 
 pub fn add(m :&DateTime, i: &Interval) -> DateTime {
-    DateTime { moment: m.moment + i.distance, tz: m.tz }
+    DateTime { moment: (m.moment as i64 + i.distance) as u64, tz: m.tz }
 }
 
 pub fn sub(m :&DateTime, i: &Interval) -> DateTime {
-    DateTime { moment: m.moment - i.distance, tz: m.tz  }
+    DateTime { moment: (m.moment as i64 - i.distance) as u64, tz: m.tz  }
 }
 
 // takes on timezone of first argument
 pub fn reduce(m1 :&DateTime, m2: &DateTime) -> DateTime {
-    DateTime { moment: m2.moment - m1.moment, tz: m1.tz }
+    DateTime { moment: (m2.moment as i64 - m1.moment as i64).abs() as u64, tz: m1.tz }
 }
 
 pub fn seconds_later(m :&DateTime, seconds: u64) -> DateTime {
@@ -74,8 +74,8 @@ pub fn days_later(m :&DateTime, days: u64) -> DateTime {
     DateTime { moment: m.moment + (((days * 24) * 60) * 60), tz: m.tz }
 }
 
-pub fn days_before(m :&DateTime, days: u64) -> DateTime {
-    DateTime { moment: m.moment - (((days * 24) * 60) * 60), tz: m.tz }
+pub fn days_before(m :&DateTime, days: i64) -> DateTime {
+    DateTime { moment: (m.moment as i64 - (((days * 24) * 60) * 60)) as u64, tz: m.tz }
 }
 
 // divide down to days and then multiply back up to seconds

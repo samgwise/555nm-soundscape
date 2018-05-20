@@ -20,7 +20,8 @@ mod config_test {
     }
 
     #[test]
-    fn intervals() {
+    fn diag() {
+        let show_diag = false; // toggle to fail and print the following diag info
         let config = test_config();
         let today = local_today();
         println!("today {} ({:?})", from_timestamp(moment(&today) as i64), today);
@@ -30,7 +31,7 @@ mod config_test {
         println!("end {} ({:?})", from_timestamp(moment(&end) as i64), end);
         println!("now {} ({:?})", from_timestamp(moment(&localtime()) as i64), localtime());
         println!("Is now in schedule? {}", is_in_schedule(&localtime(), &start, &end));
-        assert!(false);
+        assert!(!show_diag);
     }
 
     #[test]
@@ -97,7 +98,7 @@ mod config_test {
         assert!(is_in_schedule_now(&config, &during));
         assert!(!is_in_schedule_now(&config, &before));
         assert!(!is_in_schedule_now(&config, &after));
-        let before_end = epochsy::append(&start, &epochsy::hms(6, 29, 0));
+        let before_end = epochsy::append(&local_today(), &epochsy::hms(20, 29, 0));
         println!("before_end: {} ({:?})", from_timestamp(moment(&before_end) as i64), before_end);
         assert!(is_in_schedule_now(&config, &before_end));
 

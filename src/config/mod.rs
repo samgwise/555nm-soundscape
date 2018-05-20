@@ -151,21 +151,13 @@ pub fn next_epoch(from :&epochsy::DateTime, clock_time :&epochsy::DateTime) -> e
     let from_clock_time = epochsy::hms(
             epochsy::hours(from) % 24,
             epochsy::minutes(from) % 60,
-            from.moment % 60
+            moment(from) % 60
         );
     // force later to time to be later than from
-    let to = match from_clock_time.moment <= clock_time.moment {
+    match from_clock_time.moment <= clock_time.moment {
         true => epochsy::append(&cur_days, clock_time),
         false => epochsy::append(&epochsy::days_later(&cur_days, 1), clock_time)
-    };
-    // Add on the difference between from and to the from DateTime
-    epochsy::add(
-        from,
-        &epochsy::diff(
-            from,
-            &to
-        )
-    )
+    }
 }
 
 // returns the next epoch in seconds when we should start
@@ -257,5 +249,5 @@ pub fn from_timestamp(instant: i64) -> DateTime<Utc> {
 }
 
 pub fn local_today() -> epochsy::DateTime {
-    to_localtime(&epochsy::floor_to_days(&epochsy::now()))
+    to_localtime(&epochsy::today())
 }
