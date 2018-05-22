@@ -1,5 +1,5 @@
 use cgmath::{InnerSpace, Point3};
-use rodio::source::ChannelVolume;
+use rodiox::source::ChannelVolume;
 use std::fmt::Debug;
 use std::time::Duration;
 use rodio::Sample;

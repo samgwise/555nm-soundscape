@@ -245,30 +245,17 @@ fn main() {
                                     retire_resources(&mut active_sources, &mut retired_sources);
                                 }
                                 soundscape::Cmd::CheckSchedule => {
-                                    let today = config::local_today();
-                                    let start = config::next_start_time(&config, &today);
-                                    let maybe_end = config::next_end_time(&config, &start);
-                                    match maybe_end {
-                                        // If none there is no schedule, so force on and do not
-                                        // requeue our schedule check
-                                        None => {
+                                    match config::is_in_schedule_now(&config, &config::localtime()) {
+                                        true => if !is_schedule_live {
                                             is_schedule_live = true;
-                                            println!("No schedule defined, no more schedule checks will be run.");
+                                            println!("Soundscape going live according to schedule. At {:?}", config::localtime());
                                         },
-                                        Some (end) => {
-                                            match config::is_in_schedule(&config::local_today(), &start, &end) {
-                                                true => if !is_schedule_live {
-                                                    is_schedule_live = true;
-                                                    println!("Soundscape going live according to schedule.");
-                                                },
-                                                false => if is_schedule_live {
-                                                    is_schedule_live = false;
-                                                    println!("Soundscape is going to sleep according to schedule");
-                                                }
-                                            }
-                                            future_commands.push(soundscape::check_shedule(elapsed_ms + 1000));
+                                        false => if is_schedule_live {
+                                            is_schedule_live = false;
+                                            println!("Soundscape is going to sleep according to schedule. At {:?}", config::localtime());
                                         }
                                     }
+                                    future_commands.push(soundscape::check_shedule(elapsed_ms + 1000));
                                 }
                             }
                         },

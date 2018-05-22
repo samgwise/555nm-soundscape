@@ -204,26 +204,21 @@ pub fn is_in_schedule(now :&epochsy::DateTime, start: &epochsy::DateTime, end :&
 // Checks to see if we are in a scheduled duration now.
 // Returns true always if no schedule is defined
 pub fn is_in_schedule_now(config: &Soundscape, now: &epochsy::DateTime) -> bool {
-    // let now = epochsy::now();
-    let start = next_start_time(config, &epochsy::floor_to_days(now));
-    // assert!(moment(&start) >= moment(now));
-    let end = next_end_time(config, &start).unwrap();
+    let start = next_start_time(config, now);
+    // let end = match next_end_time(config, &start) {
+    let end = match next_end_time(config, now) {
+        Some (end) => end,
+        // return true on None because there is no schedule
+        None => return true,
+    };
     // assert!(moment(&start) <= moment(&end));
-    if moment(now) >= moment(&start) && moment(now) <= moment(&end) {
+    // if moment(now) >= moment(&start) && moment(now) <= moment(&end) {
+    if moment(&start) > moment(&end) {
         true
     }
     else {
         false
     }
-    // match next_end_time(config, now) {
-    //    Some (end) => {
-    //        println!("now, start, end : {}, {}, {}", moment(now), moment(&start), moment(&end));
-    //        assert!(moment(&start) >= moment(now));
-    //        assert!(moment(&end) >= moment(now));
-    //        moment(&start) >= moment(&end)
-    //    },
-    //    None => true // there is no schedule so everytime is scheduled time
-    // }
 }
 
 pub fn local_time_zone() -> i32 {
@@ -237,7 +232,7 @@ pub fn to_localtime(utc: &epochsy::DateTime) -> epochsy::DateTime {
 }
 
 pub fn localtime() -> epochsy::DateTime {
-    to_localtime(&epochsy::seconds_later(&epochsy::now(), local_time_zone() as u64))
+    to_localtime(&epochsy::now())
 }
 
 pub fn from_localtime(local: &epochsy::DateTime) -> epochsy::DateTime {
