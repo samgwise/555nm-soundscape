@@ -39,7 +39,7 @@ pub struct ReverbParams {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Scene {
     pub name:               String,
-    pub duration_ms:        u64,
+    pub duration_ms:        i64,
     pub cycle_duration_ms:  u64,
     pub resources:          Vec<SoundResource>,
     pub structure:          BSplineParams,
@@ -88,7 +88,7 @@ pub struct Soundscape {
     pub listen_addr:            Address,
     pub subscribers:            Vec<Address>,
     pub scenes:                 Vec<String>,
-    pub metro_step_ms:          u64,
+    pub metro_step_ms:          u32,
     // pub structure_duration_ms:  usize,
     pub voice_limit:            usize,
     pub default_level:          f32,
@@ -154,10 +154,11 @@ pub fn next_epoch(from :&epochsy::DateTime, clock_time :&epochsy::DateTime) -> e
             moment(from) % 60
         );
     // force later to time to be later than from
-    match from_clock_time.moment <= clock_time.moment {
+    let time = match from_clock_time.moment <= clock_time.moment {
         true => epochsy::append(&cur_days, clock_time),
         false => epochsy::append(&epochsy::days_later(&cur_days, 1), clock_time)
-    }
+    };
+    epochsy::with_timezone(&time, 0)
 }
 
 // returns the next epoch in seconds when we should start
@@ -204,16 +205,16 @@ pub fn is_in_schedule(now :&epochsy::DateTime, start: &epochsy::DateTime, end :&
 // Checks to see if we are in a scheduled duration now.
 // Returns true always if no schedule is defined
 pub fn is_in_schedule_now(config: &Soundscape, now: &epochsy::DateTime) -> bool {
-    let start = next_start_time(config, now);
-    // let end = match next_end_time(config, &start) {
-    let end = match next_end_time(config, now) {
+    let start = next_start_time(config, &local_today());
+    let end = match next_end_time(config, &start) {
+    //let end = match next_end_time(config, now) {
         Some (end) => end,
         // return true on None because there is no schedule
         None => return true,
     };
     // assert!(moment(&start) <= moment(&end));
-    // if moment(now) >= moment(&start) && moment(now) <= moment(&end) {
-    if moment(&start) > moment(&end) {
+    if moment(now) >= moment(&start) && moment(now) <= moment(&end) {
+    //if moment(&start) > moment(&end) {
         true
     }
     else {

@@ -52,7 +52,7 @@ where
 
             let distance = (speaker_position - emitter_position).magnitude();
 
-            let amplitude = (1.0 / (distance * 2.0)).abs();
+            let amplitude = (1.0 / (distance * 2.0));
 
             if amplitude > 1.0 {
                 println!("Warning: Amplitude {} is greater than 1.0 for source at {:?} and speaker at {:?}!", amplitude, emitter_position, speaker_pos);

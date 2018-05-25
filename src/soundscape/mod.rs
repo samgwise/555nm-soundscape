@@ -94,9 +94,15 @@ pub fn structure_from_scene(scene: &config::Scene) -> Structure {
 
 // Command
 #[derive(Copy, Clone, Eq, PartialEq)]
+pub enum Origin {
+    Remote,
+    Internal
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Cmd {
     Play,
-    Load (usize),
+    Load (usize, Origin),
     LoadBackground,
     CheckSchedule,
     Retire,
@@ -106,26 +112,26 @@ pub enum Cmd {
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct FutureCmd {
     pub command: Cmd,
-    pub at_tick: u64,
+    pub at_tick: i64,
 }
 
-pub fn play_at(tick: u64) -> FutureCmd {
+pub fn play_at(tick: i64) -> FutureCmd {
     FutureCmd { command: Cmd::Play, at_tick: tick }
 }
 
-pub fn load_at(scene_index: usize, tick: u64) -> FutureCmd {
-    FutureCmd { command: Cmd::Load(scene_index), at_tick: tick }
+pub fn load_at(scene_index: usize, origin: Origin, tick: i64) -> FutureCmd {
+    FutureCmd { command: Cmd::Load(scene_index, origin), at_tick: tick }
 }
 
-pub fn load_background() -> FutureCmd {
-    FutureCmd { command: Cmd::LoadBackground, at_tick: 0 }
+pub fn load_background(tick: i64) -> FutureCmd {
+    FutureCmd { command: Cmd::LoadBackground, at_tick: tick }
 }
 
-pub fn retire_at(tick: u64) -> FutureCmd {
+pub fn retire_at(tick: i64) -> FutureCmd {
     FutureCmd { command: Cmd::Retire, at_tick: tick }
 }
 
-pub fn check_shedule(tick: u64) -> FutureCmd {
+pub fn check_shedule(tick: i64) -> FutureCmd {
     FutureCmd { command: Cmd::CheckSchedule, at_tick: tick }
 }
 
@@ -147,7 +153,7 @@ impl PartialOrd for FutureCmd {
     }
 }
 
-pub fn is_cmd_now(command: Option<&FutureCmd>, ticks: &u64) -> bool {
+pub fn is_cmd_now(command: Option<&FutureCmd>, ticks: &i64) -> bool {
     match command {
         Some(cmd)   => ticks >= &cmd.at_tick,
         None        => false,

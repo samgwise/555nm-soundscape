@@ -15,13 +15,13 @@ mod config_test {
             speaker_positions:      Speakers { positions: vec![] },
             ignore_extra_speakers:  Some (true),
             is_fallback_slave:      None,
-            daily_schedule:         Some (DailySchedule { start: "18:30:00".to_string(), end: "23:00:00".to_string() }),
+            daily_schedule:         Some (DailySchedule { start: "17:30:00".to_string(), end: "23:00:00".to_string() }),
         }
     }
 
     #[test]
     fn diag() {
-        let show_diag = false; // toggle to fail and print the following diag info
+        let show_diag = true;//false; // toggle to fail and print the following diag info
         let config = test_config();
         let today = local_today();
         println!("today {} ({:?})", from_timestamp(moment(&today) as i64), today);
