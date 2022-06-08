@@ -4,11 +4,11 @@ version = "0.1.0"
 authors = ["Sam Gillespie <samgwise@gmail.com>"]
 
 [dependencies]
-rodio = "0.7.0"
+rodio = "0.15.0"
 rosc = "0.1.5"
 serde = "1.0"
 serde_derive = "1.0"
-serde_yaml = "0.7"
+serde_yaml = "0.8.4"
 bspline = "0.2.2"
 timer = "0.2.0"
 chrono = "0.4.1"
